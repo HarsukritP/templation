@@ -4,7 +4,7 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Copy, Trash2, Key, Eye, EyeOff, AlertTriangle, CheckCircle } from "lucide-react"
+import { Plus, Copy, Trash2, Key, CheckCircle } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
 
@@ -146,10 +146,7 @@ export default function ApiKeysPage() {
     })
   }
 
-  const isExpired = (expiresAt: string | null) => {
-    if (!expiresAt) return false
-    return new Date(expiresAt) < new Date()
-  }
+
 
   const getExpiryStatus = (expiresAt: string | null) => {
     if (!expiresAt) return { status: 'never', color: 'text-muted-foreground', text: 'Never expires' }
@@ -238,7 +235,7 @@ export default function ApiKeysPage() {
                           </Button>
                         </div>
                         <p className="text-xs text-green-300 mt-2">
-                          ⚠️ Save this key now - it won't be shown again!
+                          ⚠️ Save this key now - it won&apos;t be shown again!
                         </p>
                       </div>
                     )}
@@ -277,11 +274,11 @@ export default function ApiKeysPage() {
                 </p>
                 <p className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>You can revoke keys at any time if they're compromised</span>
+                  <span>You can revoke keys at any time if they&apos;re compromised</span>
                 </p>
                 <p className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>Keys are prefixed with 'tk_prod_' for production or 'tk_dev_' for development</span>
+                  <span>Keys are prefixed with &apos;tk_prod_&apos; for production or &apos;tk_dev_&apos; for development</span>
                 </p>
               </div>
             </CardContent>

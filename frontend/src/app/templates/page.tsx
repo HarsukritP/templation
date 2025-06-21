@@ -4,10 +4,10 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Search, Filter, Github, Star, Clock, ExternalLink, Trash2, Edit, Copy } from "lucide-react"
+import { Plus, Search, Github, Star, Clock, ExternalLink, Trash2, Edit } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
-import Image from "next/image"
+// import Image from "next/image"
 import Link from "next/link"
 
 interface Template {
@@ -21,8 +21,8 @@ interface Template {
   usage_count: number
   created_at: string
   last_used: string | null
-  template_data: any
-  analysis_results: any
+  template_data: Record<string, unknown>
+  analysis_results: Record<string, unknown>
 }
 
 interface Repository {
@@ -107,7 +107,7 @@ export default function TemplatesPage() {
       })
       
       // Then convert to template
-      const result = await api.createTemplate({
+      await api.createTemplate({
         source_repo_url: repoUrl,
         name: extractRepoName(repoUrl),
         description: templateDescription,

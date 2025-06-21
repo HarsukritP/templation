@@ -4,10 +4,10 @@ import { DashboardLayout } from "../../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../../components/auth/protected-route"
 import { Button } from "../../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
-import { ArrowLeft, Github, Star, Clock, ExternalLink, Download, Copy, Edit, Save, X } from "lucide-react"
+import { ArrowLeft, Github, Star, ExternalLink, Download, Copy, Edit, Save, X } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 
 interface Template {
@@ -21,14 +21,14 @@ interface Template {
   usage_count: number
   created_at: string
   last_used: string | null
-  template_data: any
-  analysis_results: any
+  template_data: Record<string, unknown>
+  analysis_results: Record<string, unknown>
 }
 
 export default function TemplateDetailsPage() {
   const { user } = useUser()
   const params = useParams()
-  const router = useRouter()
+  // const router = useRouter()
   const templateId = params.id as string
   
   const [template, setTemplate] = useState<Template | null>(null)
@@ -54,7 +54,7 @@ export default function TemplateDetailsPage() {
     if (user && templateId) {
       fetchTemplate()
     }
-  }, [user, templateId])
+  }, [user, templateId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTemplate = async () => {
     try {
