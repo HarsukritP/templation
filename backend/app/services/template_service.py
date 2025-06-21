@@ -142,100 +142,168 @@ async def convert_repo_to_template(
 async def analyze_repo_with_ai(context: dict) -> dict:
     """Use AI to analyze repository and generate conversion instructions"""
     try:
-        # Construct prompt for OpenAI
-        prompt = f"""
-        Analyze this GitHub repository and provide detailed instructions for converting it into a personalized template.
-
-        Repository Information:
-        - Name: {context.get('repo_name')}
-        - Description: {context.get('description')}
-        - Language: {context.get('language')}
-        - Topics: {', '.join(context.get('topics', []))}
-        - File Structure: {', '.join(context.get('structure', [])[:10])}
-
-        User Requirements:
-        - Template Description: {context.get('user_description')}
-        - User Context: {context.get('user_context')}
-
-        Please provide:
-        1. Step-by-step conversion instructions
-        2. Files that need to be modified
-        3. Key customization points
-        4. Setup commands needed
-        5. Expected outcome description
-
-        Format your response as a JSON object with keys: conversion_steps, files_to_modify, customization_points, setup_commands, expected_outcome
-        """
+        # Try to use OpenAI API if available (check multiple possible env var names)
+        openai_api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
         
-        # For MVP, we'll use a simplified approach without OpenAI
-        # In production, you would use the OpenAI API here
-        
-        # Simplified conversion logic based on common patterns
-        conversion_steps = [
-            "1. Clone the repository to your local machine",
-            "2. Install dependencies using the package manager",
-            "3. Update configuration files with your project details",
-            "4. Customize styling and branding",
-            "5. Test the application locally",
-            "6. Deploy to your preferred hosting platform"
-        ]
-        
-        files_to_modify = []
-        setup_commands = []
-        
-        # Detect common files and provide specific instructions
-        structure = context.get('structure', [])
-        
-        if 'package.json' in structure:
-            files_to_modify.extend(['package.json', 'README.md'])
-            setup_commands.extend(['npm install', 'npm start'])
-        elif 'requirements.txt' in structure:
-            files_to_modify.extend(['requirements.txt', 'README.md'])
-            setup_commands.extend(['pip install -r requirements.txt', 'python app.py'])
-        elif 'Gemfile' in structure:
-            files_to_modify.extend(['Gemfile', 'README.md'])
-            setup_commands.extend(['bundle install', 'rails server'])
-        
-        # Add common customization points
-        customization_points = [
-            "Update project name and description",
-            "Modify color scheme and styling",
-            "Replace placeholder content with your own",
-            "Configure environment variables",
-            "Update API endpoints and configurations"
-        ]
-        
-        # Add language-specific customization points
-        language = context.get('language', '').lower()
-        if language == 'javascript':
-            customization_points.append("Update React/Vue components")
-        elif language == 'python':
-            customization_points.append("Modify Flask/Django settings")
-        elif language == 'ruby':
-            customization_points.append("Update Rails configuration")
-        
-        expected_outcome = f"A fully functional {context.get('user_description')} based on the {context.get('repo_name')} repository, customized for your specific needs."
-        
-        return {
-            "conversion_steps": conversion_steps,
-            "files_to_modify": files_to_modify,
-            "customization_points": customization_points,
-            "setup_commands": setup_commands,
-            "expected_outcome": expected_outcome
-        }
+        if openai_api_key:
+            return await analyze_with_openai(context, openai_api_key)
+        else:
+            # Fall back to rule-based analysis
+            return await analyze_with_rules(context)
     
     except Exception as e:
         # Fallback to basic conversion instructions
-        return {
-            "conversion_steps": [
-                "1. Clone the repository",
-                "2. Install dependencies",
-                "3. Customize configuration",
-                "4. Test locally",
-                "5. Deploy"
-            ],
-            "files_to_modify": ["README.md", "config files"],
-            "customization_points": ["Update project details", "Modify styling"],
-            "setup_commands": ["Follow repository instructions"],
-            "expected_outcome": "A customized version of the repository"
-        } 
+        return await analyze_with_rules(context)
+
+async def analyze_with_openai(context: dict, api_key: str) -> dict:
+    """Use OpenAI to analyze repository and generate detailed conversion instructions"""
+    import httpx
+    
+    # Construct detailed prompt for OpenAI
+    prompt = f"""
+    Analyze this GitHub repository and provide detailed, actionable instructions for converting it into a personalized template.
+
+    Repository Information:
+    - Name: {context.get('repo_name')}
+    - Description: {context.get('description')}
+    - Language: {context.get('language')}
+    - Topics: {', '.join(context.get('topics', []))}
+    - File Structure: {', '.join(context.get('structure', [])[:15])}
+
+    User Requirements:
+    - Template Description: {context.get('user_description')}
+    - User Context: {context.get('user_context')}
+
+    Please provide a detailed JSON response with these exact keys:
+    {{
+        "conversion_steps": ["Step 1", "Step 2", ...],
+        "files_to_modify": ["file1.js", "file2.json", ...],
+        "customization_points": ["point 1", "point 2", ...],
+        "setup_commands": ["npm install", "npm start", ...],
+        "expected_outcome": "Description of final result"
+    }}
+
+    Make the instructions specific to this repository type and the user's goals. Include actual file names and realistic customization steps.
+    """
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-mini",  # Cost-effective model
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are an expert software engineer who specializes in analyzing codebases and creating detailed template conversion instructions. Respond only with valid JSON."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 1000
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                
+                # Try to parse JSON response
+                import json
+                try:
+                    ai_analysis = json.loads(content)
+                    # Validate required keys
+                    required_keys = ["conversion_steps", "files_to_modify", "customization_points", "setup_commands", "expected_outcome"]
+                    if all(key in ai_analysis for key in required_keys):
+                        return ai_analysis
+                except json.JSONDecodeError:
+                    pass
+            
+            # If AI response is invalid, fall back to rules
+            return await analyze_with_rules(context)
+            
+    except Exception as e:
+        print(f"OpenAI API error: {e}")
+        return await analyze_with_rules(context)
+
+async def analyze_with_rules(context: dict) -> dict:
+    """Rule-based analysis as fallback when AI is not available"""
+    # Simplified conversion logic based on common patterns
+    conversion_steps = [
+        "1. Clone the repository to your local machine",
+        "2. Install dependencies using the package manager",
+        "3. Update configuration files with your project details",
+        "4. Customize styling and branding",
+        "5. Test the application locally",
+        "6. Deploy to your preferred hosting platform"
+    ]
+    
+    files_to_modify = []
+    setup_commands = []
+    
+    # Detect common files and provide specific instructions
+    structure = context.get('structure', [])
+    
+    if 'package.json' in structure:
+        files_to_modify.extend(['package.json', 'README.md'])
+        setup_commands.extend(['npm install', 'npm start'])
+        if 'next.config.js' in structure or 'next.config.ts' in structure:
+            files_to_modify.append('next.config.js')
+            conversion_steps.insert(3, "3. Update Next.js configuration and environment variables")
+        if 'tailwind.config.js' in structure:
+            files_to_modify.append('tailwind.config.js')
+            conversion_steps.insert(4, "4. Customize Tailwind CSS theme and colors")
+    elif 'requirements.txt' in structure:
+        files_to_modify.extend(['requirements.txt', 'README.md'])
+        setup_commands.extend(['pip install -r requirements.txt', 'python app.py'])
+        if 'app.py' in structure or 'main.py' in structure:
+            files_to_modify.extend(['app.py', '.env.example'])
+    elif 'Gemfile' in structure:
+        files_to_modify.extend(['Gemfile', 'README.md'])
+        setup_commands.extend(['bundle install', 'rails server'])
+    elif 'go.mod' in structure:
+        files_to_modify.extend(['go.mod', 'README.md'])
+        setup_commands.extend(['go mod tidy', 'go run main.go'])
+    
+    # Add common customization points
+    customization_points = [
+        "Update project name and description",
+        "Modify color scheme and styling",
+        "Replace placeholder content with your own",
+        "Configure environment variables",
+        "Update API endpoints and configurations"
+    ]
+    
+    # Add language-specific customization points
+    language = context.get('language', '').lower()
+    if language == 'javascript' or language == 'typescript':
+        customization_points.append("Update React/Vue components and routing")
+        customization_points.append("Modify API endpoints and data fetching")
+    elif language == 'python':
+        customization_points.append("Configure Flask/Django/FastAPI settings")
+        customization_points.append("Update database models and migrations")
+    elif language == 'ruby':
+        customization_points.append("Update Rails configuration and routes")
+    elif language == 'go':
+        customization_points.append("Modify Go modules and package structure")
+    
+    # Enhanced expected outcome based on user description
+    user_desc = context.get('user_description', '')
+    repo_name = context.get('repo_name', 'repository')
+    expected_outcome = f"A fully functional {user_desc} based on the {repo_name} repository, customized for your specific needs and ready for development."
+    
+    return {
+        "conversion_steps": conversion_steps,
+        "files_to_modify": files_to_modify,
+        "customization_points": customization_points,
+        "setup_commands": setup_commands,
+        "expected_outcome": expected_outcome
+    } 

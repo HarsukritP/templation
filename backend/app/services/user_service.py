@@ -38,17 +38,8 @@ class UserService:
                 user.picture = auth0_user.get("picture", user.picture)
                 updated = True
             
-            # Extract GitHub username if available
-            github_username = None
-            identities = auth0_user.get("identities", [])
-            for identity in identities:
-                if identity.get("provider") == "github":
-                    github_username = identity.get("profileData", {}).get("login")
-                    break
-            
-            if github_username and user.github_username != github_username:
-                user.github_username = github_username
-                updated = True
+            # Only update GitHub info if user explicitly connected GitHub
+            # (Don't automatically extract from Auth0 identities)
             
             if updated:
                 await db.commit()
@@ -56,20 +47,14 @@ class UserService:
             
             return user
         
-        # Create new user
-        github_username = None
-        identities = auth0_user.get("identities", [])
-        for identity in identities:
-            if identity.get("provider") == "github":
-                github_username = identity.get("profileData", {}).get("login")
-                break
-        
+        # Create new user (without automatic GitHub integration)
         new_user = User(
             auth0_id=auth0_id,
             email=auth0_user.get("email", ""),
             name=auth0_user.get("name"),
             picture=auth0_user.get("picture"),
-            github_username=github_username
+            github_username=None,  # Only set when explicitly connected
+            github_connected=False
         )
         
         db.add(new_user)
@@ -146,4 +131,66 @@ class UserService:
             .order_by(Repository.created_at.desc())
             .limit(limit)
         )
-        return result.scalars().all() 
+        return result.scalars().all()
+    
+    @staticmethod
+    async def connect_github_account(user_id: str, github_username: str, github_access_token: str, db: AsyncSession) -> User:
+        """Connect GitHub account to user"""
+        result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("User not found")
+        
+        # Update GitHub info
+        user.github_username = github_username
+        user.github_connected = True
+        user.github_access_token = github_access_token  # In production, encrypt this
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        logger.info(f"Connected GitHub account {github_username} to user {user.email}")
+        return user
+    
+    @staticmethod
+    async def disconnect_github_account(user_id: str, db: AsyncSession) -> User:
+        """Disconnect GitHub account from user"""
+        result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("User not found")
+        
+        # Clear GitHub info
+        old_username = user.github_username
+        user.github_username = None
+        user.github_connected = False
+        user.github_access_token = None
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        logger.info(f"Disconnected GitHub account {old_username} from user {user.email}")
+        return user
+    
+    @staticmethod
+    async def get_github_connection_status(user_id: str, db: AsyncSession) -> Dict[str, Any]:
+        """Get GitHub connection status for user"""
+        result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("User not found")
+        
+        return {
+            "connected": user.github_connected,
+            "username": user.github_username,
+            "has_access_token": bool(user.github_access_token)
+        } 

@@ -16,6 +16,8 @@ class User(Base):
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)  # Profile picture URL
     github_username = Column(String, nullable=True)
+    github_connected = Column(Boolean, default=False)  # Whether user explicitly connected GitHub
+    github_access_token = Column(String, nullable=True)  # GitHub OAuth token (encrypted)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     

@@ -4,6 +4,7 @@ from typing import List
 import secrets
 import hashlib
 from datetime import datetime, timedelta
+import logging
 
 from app.db.database import get_database
 from app.models.database import User, APIKey
@@ -11,6 +12,12 @@ from app.services.auth_service import get_current_user
 from app.services.api_key_service import APIKeyService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+@router.get("/health")
+async def api_keys_health():
+    """Health check for API keys endpoint"""
+    return {"status": "healthy", "service": "api_keys"}
 
 @router.get("/", response_model=List[dict])
 async def get_user_api_keys(
@@ -19,7 +26,15 @@ async def get_user_api_keys(
 ):
     """Get all API keys for the current user"""
     try:
+        logger.info(f"Fetching API keys for user {current_user.id}")
+        
+        # Check if database is available
+        if db is None:
+            logger.error("Database session is None")
+            raise HTTPException(status_code=500, detail="Database not available")
+        
         api_keys = await APIKeyService.get_user_api_keys(current_user.id, db)
+        logger.info(f"Found {len(api_keys)} API keys for user {current_user.id}")
         
         return [
             {
@@ -35,7 +50,10 @@ async def get_user_api_keys(
             }
             for key in api_keys
         ]
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error fetching API keys for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get API keys: {str(e)}")
 
 @router.post("/", response_model=dict)

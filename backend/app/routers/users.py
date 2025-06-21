@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
+from pydantic import BaseModel
 
 from app.db.database import get_database
 from app.services.user_service import UserService
@@ -8,6 +9,10 @@ from app.services.auth_service import get_current_user
 from app.models.database import User
 
 router = APIRouter()
+
+class GitHubConnectRequest(BaseModel):
+    github_username: str
+    access_token: str
 
 @router.get("/me")
 async def get_current_user_info(
@@ -21,6 +26,7 @@ async def get_current_user_info(
             "name": current_user.name,
             "picture": current_user.picture,
             "github_username": current_user.github_username,
+            "github_connected": current_user.github_connected,
             "created_at": current_user.created_at.isoformat() if current_user.created_at else None
         }
     except Exception as e:
@@ -95,4 +101,61 @@ async def get_user_repositories(
             for repo in repositories
         ]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get repositories: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to get repositories: {str(e)}")
+
+@router.get("/github/status")
+async def get_github_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_database)
+):
+    """Get GitHub connection status"""
+    try:
+        status = await UserService.get_github_connection_status(current_user.id, db)
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get GitHub status: {str(e)}")
+
+@router.post("/github/connect")
+async def connect_github(
+    request: GitHubConnectRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_database)
+):
+    """Connect GitHub account"""
+    try:
+        # TODO: In production, verify the GitHub token and username match
+        # For now, trust the frontend to provide correct info
+        
+        updated_user = await UserService.connect_github_account(
+            current_user.id, 
+            request.github_username, 
+            request.access_token, 
+            db
+        )
+        
+        return {
+            "success": True,
+            "message": f"Successfully connected GitHub account: {request.github_username}",
+            "github_username": updated_user.github_username,
+            "github_connected": updated_user.github_connected
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to connect GitHub: {str(e)}")
+
+@router.post("/github/disconnect")
+async def disconnect_github(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_database)
+):
+    """Disconnect GitHub account"""
+    try:
+        updated_user = await UserService.disconnect_github_account(current_user.id, db)
+        
+        return {
+            "success": True,
+            "message": "Successfully disconnected GitHub account",
+            "github_username": None,
+            "github_connected": False
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect GitHub: {str(e)}") 

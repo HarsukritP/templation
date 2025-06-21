@@ -161,6 +161,106 @@ async def check_database():
             "message": "Failed to check database"
         }
 
+@app.post("/debug/migrate-github-columns")
+async def migrate_github_columns():
+    """Migrate existing users to have GitHub connection fields"""
+    try:
+        # Get database URL
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return {"error": "DATABASE_URL not configured", "success": False}
+        
+        # Convert to async URL
+        async_url = get_async_database_url(database_url)
+        
+        # Create async engine
+        engine = create_async_engine(async_url)
+        
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            # Add new columns if they don't exist
+            try:
+                await conn.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN IF NOT EXISTS github_connected BOOLEAN DEFAULT FALSE,
+                    ADD COLUMN IF NOT EXISTS github_access_token VARCHAR
+                """))
+                
+                # Update existing users to have github_connected = false (unless they have a github_username)
+                await conn.execute(text("""
+                    UPDATE users 
+                    SET github_connected = CASE 
+                        WHEN github_username IS NOT NULL AND github_username != '' THEN FALSE
+                        ELSE FALSE 
+                    END
+                    WHERE github_connected IS NULL
+                """))
+                
+                result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+                user_count = result.scalar()
+                
+                return {
+                    "success": True,
+                    "message": "GitHub columns migrated successfully",
+                    "users_updated": user_count
+                }
+                
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "message": "Migration failed"
+                }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to migrate GitHub columns"
+        }
+
+@app.post("/debug/reset-github-connections")
+async def reset_github_connections():
+    """Reset all GitHub connections to disconnected state (for fixing phantom connections)"""
+    try:
+        # Get database URL
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return {"error": "DATABASE_URL not configured", "success": False}
+        
+        # Convert to async URL
+        async_url = get_async_database_url(database_url)
+        
+        # Create async engine
+        engine = create_async_engine(async_url)
+        
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            # Reset all GitHub connections
+            result = await conn.execute(text("""
+                UPDATE users 
+                SET 
+                    github_username = NULL,
+                    github_connected = FALSE,
+                    github_access_token = NULL
+                WHERE github_connected = TRUE OR github_username IS NOT NULL
+            """))
+            
+            affected_rows = result.rowcount
+            
+            return {
+                "success": True,
+                "message": "All GitHub connections reset successfully",
+                "users_reset": affected_rows
+            }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to reset GitHub connections"
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
