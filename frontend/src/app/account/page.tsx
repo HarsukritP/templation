@@ -47,13 +47,20 @@ export default function AccountPage() {
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubOAuthStatus, setGithubOAuthStatus] = useState<GitHubOAuthStatus | null>(null)
 
+  // Initial load - always fetch OAuth status
+  useEffect(() => {
+    if (user) {
+      fetchGithubOAuthStatus()
+    }
+  }, [user])
+
+  // Tab-specific data loading
   useEffect(() => {
     if (activeTab === 'api-keys' && user) {
       fetchApiKeys()
     }
     if (activeTab === 'profile' && user) {
       fetchGithubStatus()
-      fetchGithubOAuthStatus()
     }
   }, [activeTab, user])
 
@@ -156,7 +163,6 @@ export default function AccountPage() {
     try {
       const { api } = await import('../../lib/api')
       const status = await api.getGithubOAuthStatus() as GitHubOAuthStatus
-      console.log('OAuth status response:', status)
       setGithubOAuthStatus(status)
     } catch (err) {
       console.error('Error fetching GitHub OAuth status:', err)
@@ -388,10 +394,6 @@ export default function AccountPage() {
                   
                   {/* GitHub Instructions */}
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                    {/* Debug info */}
-                    <div className="mb-2 text-xs text-red-500">
-                      Debug: OAuth configured = {String(githubOAuthStatus?.configured)} | OAuth status = {JSON.stringify(githubOAuthStatus)}
-                    </div>
                     {githubOAuthStatus?.configured ? (
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">
@@ -414,7 +416,7 @@ export default function AccountPage() {
                           <li>4. Copy the token and paste it when connecting</li>
                         </ol>
                       </div>
-                    )}image.png
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -15,7 +15,6 @@ const getApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
-console.log('API_BASE_URL resolved to:', API_BASE_URL);
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
