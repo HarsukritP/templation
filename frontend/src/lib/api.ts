@@ -140,15 +140,8 @@ export const api = {
   // GitHub OAuth endpoints (public)
   getGithubOAuthStatus: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/github/status`)
-      
-      if (!response.ok) {
-        console.error('OAuth status request failed:', response.status, response.statusText)
-        return { configured: false, client_id: null }
-      }
-      
-      const data = await response.json()
-      return data
+      const response = await ApiClient.get('/api/auth/github/status')
+      return response
     } catch (error) {
       console.error('Error fetching OAuth status:', error)
       return { configured: false, client_id: null }
