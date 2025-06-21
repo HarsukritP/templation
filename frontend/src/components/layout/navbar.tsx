@@ -6,11 +6,10 @@ import {
   FileText, 
   User
 } from "lucide-react"
+import { useUser } from "@auth0/nextjs-auth0"
 
 export function Navbar() {
-  // For now, we'll use a simple state. Auth0 will be integrated properly
-  const user = null
-  const isLoading = false
+  const { user, isLoading } = useUser()
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4">

@@ -7,12 +7,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Only protect these specific routes that require authentication
-    "/dashboard/:path*",
-    "/templates/:path*", 
-    "/api-keys/:path*",
-    "/account/:path*",
-    // Auth routes are handled by Auth0
-    "/auth/:path*"
-  ]
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+  ],
 }; 

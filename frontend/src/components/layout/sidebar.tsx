@@ -10,6 +10,7 @@ import {
   BookOpen,
   Key
 } from "lucide-react"
+import { useUser } from "@auth0/nextjs-auth0"
 
 // Public navigation items (always visible)
 const publicItems = [
@@ -46,12 +47,27 @@ const privateItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { user, isLoading } = useUser()
   
-  // For now, we'll simulate auth state - this will be replaced with actual Auth0 hook
-  const isAuthenticated = false // TODO: Replace with actual auth state
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="pb-12 w-64">
+        <div className="space-y-4 py-4">
+          <div className="px-3 py-2">
+            <div className="space-y-1">
+              <div className="h-8 bg-muted animate-pulse rounded-lg" />
+              <div className="h-8 bg-muted animate-pulse rounded-lg" />
+              <div className="h-8 bg-muted animate-pulse rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
   
   // Combine items based on auth state
-  const sidebarItems = isAuthenticated 
+  const sidebarItems = user 
     ? [...publicItems, ...privateItems]
     : publicItems
 
@@ -80,7 +96,7 @@ export function Sidebar() {
             })}
             
             {/* Show auth prompt when not authenticated */}
-            {!isAuthenticated && (
+            {!user && (
               <div className="px-3 py-4 mt-4 border-t">
                 <p className="text-xs text-muted-foreground mb-2">
                   Sign in to access more features
