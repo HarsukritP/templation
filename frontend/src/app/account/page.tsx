@@ -46,6 +46,17 @@ export default function AccountPage() {
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null)
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubOAuthStatus, setGithubOAuthStatus] = useState<GitHubOAuthStatus | null>(null)
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null)
+
+  // Auto-dismiss notifications after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
 
   // Initial load - always fetch OAuth status
   useEffect(() => {
@@ -72,7 +83,10 @@ export default function AccountPage() {
     const username = urlParams.get('username')
 
     if (success === 'github_connected' && username) {
-      alert(`Successfully connected GitHub account: @${username}`)
+      setNotification({
+        type: 'success',
+        message: `Successfully connected GitHub account: @${username}`
+      })
       fetchGithubStatus() // Refresh status
       // Clean URL
       window.history.replaceState({}, '', '/account')
@@ -85,7 +99,10 @@ export default function AccountPage() {
         'github_no_username': 'Could not retrieve your GitHub username',
         'github_oauth_error': 'An error occurred during GitHub connection'
       }
-      alert(`GitHub connection failed: ${errorMessages[error as keyof typeof errorMessages] || error}`)
+      setNotification({
+        type: 'error',
+        message: `GitHub connection failed: ${errorMessages[error as keyof typeof errorMessages] || error}`
+      })
       // Clean URL
       window.history.replaceState({}, '', '/account')
     }
@@ -112,8 +129,11 @@ export default function AccountPage() {
       const { api } = await import('../../lib/api')
       const newKey = await api.createApiKey(name) as CreateApiKeyResponse
       
-      // Show the new key in an alert (in production, you'd want a proper modal)
-      alert(`API Key Created!\n\nKey: ${newKey.key}\n\nSave this key - it won't be shown again!`)
+      // Show the new key in a notification
+      setNotification({
+        type: 'success',
+        message: `API Key Created! Key: ${newKey.key} - Save this key, it won't be shown again!`
+      })
       
       // Refresh the list
       await fetchApiKeys()
@@ -181,10 +201,16 @@ export default function AccountPage() {
       const { api } = await import('../../lib/api')
       await api.disconnectGithub()
       await fetchGithubStatus()
-      alert('Successfully disconnected GitHub account')
-    } catch (err) {
-      console.error('Error disconnecting GitHub:', err)
-      alert('Failed to disconnect GitHub account')
+      setNotification({
+        type: 'success',
+        message: 'Successfully disconnected GitHub account'
+      })
+          } catch (err) {
+        console.error('Error disconnecting GitHub:', err)
+        setNotification({
+          type: 'error',
+          message: 'Failed to disconnect GitHub account'
+        })
     } finally {
       setGithubLoading(false)
     }
@@ -199,7 +225,10 @@ export default function AccountPage() {
         api.initiateGithubOAuth()
       } catch (err) {
         console.error('Error initiating GitHub OAuth:', err)
-        alert('Failed to start GitHub connection')
+        setNotification({
+          type: 'error',
+          message: 'Failed to start GitHub connection'
+        })
       }
     } else {
       // Fallback to manual token entry
@@ -219,10 +248,16 @@ export default function AccountPage() {
       const { api } = await import('../../lib/api')
       await api.connectGithub(username, token)
       await fetchGithubStatus()
-      alert(`Successfully connected GitHub account: @${username}`)
+      setNotification({
+        type: 'success',
+        message: `Successfully connected GitHub account: @${username}`
+      })
     } catch (err) {
       console.error('Error connecting GitHub:', err)
-      alert('Failed to connect GitHub account')
+      setNotification({
+        type: 'error',
+        message: 'Failed to connect GitHub account'
+      })
     } finally {
       setGithubLoading(false)
     }
@@ -262,6 +297,42 @@ export default function AccountPage() {
             </p>
           </div>
 
+          {/* Notification */}
+          {notification && (
+            <Card className={`border-l-4 ${notification.type === 'success' ? 'border-l-green-500 bg-green-50' : 'border-l-red-500 bg-red-50'}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3">
+                    <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                      {notification.type === 'success' ? (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                        {notification.message}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setNotification(null)}
+                    className={`flex-shrink-0 ml-4 ${notification.type === 'success' ? 'text-green-400 hover:text-green-600' : 'text-red-400 hover:text-red-600'}`}
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Tabs */}
           <div className="border-b">
             <nav className="-mb-px flex space-x-8">
@@ -297,15 +368,30 @@ export default function AccountPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-4">
-                    {user?.picture && (
-                      <Image
-                        src={user.picture}
-                        alt="Profile"
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-full"
-                      />
-                    )}
+                    <div className="relative w-16 h-16">
+                      {user?.picture ? (
+                        <Image
+                          src={user.picture}
+                          alt="Profile"
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                          onError={(e) => {
+                            // Hide image on error and show fallback
+                            e.currentTarget.style.display = 'none'
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                            if (fallback) fallback.style.display = 'flex'
+                          }}
+                        />
+                      ) : null}
+                      {/* Fallback avatar */}
+                      <div 
+                        className={`w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-xl ${user?.picture ? 'hidden' : 'flex'}`}
+                        style={{ display: user?.picture ? 'none' : 'flex' }}
+                      >
+                        {user?.name ? user.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                    </div>
                     <div>
                       <h3 className="text-lg font-medium">{user?.name || 'User'}</h3>
                       <p className="text-muted-foreground">{user?.email}</p>
