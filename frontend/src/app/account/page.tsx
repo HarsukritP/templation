@@ -26,16 +26,27 @@ interface CreateApiKeyResponse {
   [key: string]: unknown
 }
 
+interface GitHubStatus {
+  connected: boolean
+  username: string | null
+  has_access_token: boolean
+}
+
 export default function AccountPage() {
   const { user } = useUser()
   const [activeTab, setActiveTab] = useState('profile')
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null)
+  const [githubLoading, setGithubLoading] = useState(false)
 
   useEffect(() => {
     if (activeTab === 'api-keys' && user) {
       fetchApiKeys()
+    }
+    if (activeTab === 'profile' && user) {
+      fetchGithubStatus()
     }
   }, [activeTab, user])
 
@@ -90,6 +101,65 @@ export default function AccountPage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     // You could add a toast notification here
+  }
+
+  const fetchGithubStatus = async () => {
+    try {
+      setGithubLoading(true)
+      const { api } = await import('../../lib/api')
+      const status = await api.getGithubStatus() as GitHubStatus
+      setGithubStatus(status)
+    } catch (err) {
+      console.error('Error fetching GitHub status:', err)
+      // Set default status if fetch fails
+      setGithubStatus({ connected: false, username: null, has_access_token: false })
+    } finally {
+      setGithubLoading(false)
+    }
+  }
+
+  const handleDisconnectGithub = async () => {
+    if (!confirm('Are you sure you want to disconnect your GitHub account?')) {
+      return
+    }
+
+    try {
+      setGithubLoading(true)
+      const { api } = await import('../../lib/api')
+      await api.disconnectGithub()
+      await fetchGithubStatus()
+      alert('Successfully disconnected GitHub account')
+    } catch (err) {
+      console.error('Error disconnecting GitHub:', err)
+      alert('Failed to disconnect GitHub account')
+    } finally {
+      setGithubLoading(false)
+    }
+  }
+
+  const handleConnectGithub = () => {
+    const username = prompt('Enter your GitHub username:')
+    if (!username) return
+
+    const token = prompt('Enter your GitHub personal access token:')
+    if (!token) return
+
+    connectGithub(username, token)
+  }
+
+  const connectGithub = async (username: string, token: string) => {
+    try {
+      setGithubLoading(true)
+      const { api } = await import('../../lib/api')
+      await api.connectGithub(username, token)
+      await fetchGithubStatus()
+      alert(`Successfully connected GitHub account: @${username}`)
+    } catch (err) {
+      console.error('Error connecting GitHub:', err)
+      alert('Failed to connect GitHub account')
+    } finally {
+      setGithubLoading(false)
+    }
   }
 
   const tabs = [
@@ -208,16 +278,65 @@ export default function AccountPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">GitHub Account</p>
-                      <p className="text-sm text-muted-foreground">
-                        {user?.nickname ? `Connected as @${user.nickname}` : 'Not connected'}
-                      </p>
+                  {githubLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
+                      <div className="h-4 bg-gray-300 rounded w-1/3"></div>
                     </div>
-                    <Button variant="outline">
-                      {user?.nickname ? 'Reconnect' : 'Connect GitHub'}
-                    </Button>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">GitHub Account</p>
+                        <p className="text-sm text-muted-foreground">
+                          {githubStatus?.connected && githubStatus?.username 
+                            ? `Connected as @${githubStatus.username}` 
+                            : 'Not connected'
+                          }
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        {githubStatus?.connected ? (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              onClick={handleConnectGithub}
+                              disabled={githubLoading}
+                            >
+                              Reconnect
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={handleDisconnectGithub}
+                              disabled={githubLoading}
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                              Disconnect
+                            </Button>
+                          </>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            onClick={handleConnectGithub}
+                            disabled={githubLoading}
+                          >
+                            Connect GitHub
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* GitHub Token Instructions */}
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      <strong>Need a GitHub token?</strong>
+                    </p>
+                    <ol className="text-xs text-muted-foreground space-y-1">
+                      <li>1. Go to <a href="https://github.com/settings/tokens" target="_blank" className="text-blue-600 underline">GitHub Settings → Personal Access Tokens</a></li>
+                      <li>2. Click "Generate new token (classic)"</li>
+                      <li>3. Select scopes: <code>repo</code>, <code>read:user</code></li>
+                      <li>4. Copy the token and paste it when connecting</li>
+                    </ol>
                   </div>
                 </CardContent>
               </Card>

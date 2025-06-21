@@ -101,4 +101,9 @@ export const api = {
   deleteApiKey: (keyId: string) => ApiClient.delete(`/api/api-keys/${keyId}`),
   toggleApiKey: (keyId: string) => ApiClient.put(`/api/api-keys/${keyId}/toggle`),
   getApiKeyUsage: (keyId: string) => ApiClient.get(`/api/api-keys/${keyId}/usage`),
+  
+  // GitHub endpoints
+  getGithubStatus: () => ApiClient.get('/api/users/github/status'),
+  connectGithub: (username: string, accessToken: string) => ApiClient.post('/api/users/github/connect', { github_username: username, access_token: accessToken }),
+  disconnectGithub: () => ApiClient.post('/api/users/github/disconnect'),
 } 
