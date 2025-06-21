@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './button';
 import { Card } from './card';
 
@@ -21,11 +21,7 @@ export default function GitHubSettings({ onStatusChange }: GitHubSettingsProps) 
   const [githubUsername, setGithubUsername] = useState('');
   const [accessToken, setAccessToken] = useState('');
 
-  useEffect(() => {
-    fetchGitHubStatus();
-  }, []);
-
-  const fetchGitHubStatus = async () => {
+  const fetchGitHubStatus = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/users/github/status', {
@@ -44,7 +40,11 @@ export default function GitHubSettings({ onStatusChange }: GitHubSettingsProps) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [onStatusChange]);
+
+  useEffect(() => {
+    fetchGitHubStatus();
+  }, [fetchGitHubStatus]);
 
   const connectGitHub = async () => {
     if (!githubUsername.trim() || !accessToken.trim()) {

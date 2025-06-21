@@ -333,7 +333,7 @@ export default function AccountPage() {
                     </p>
                     <ol className="text-xs text-muted-foreground space-y-1">
                       <li>1. Go to <a href="https://github.com/settings/tokens" target="_blank" className="text-blue-600 underline">GitHub Settings → Personal Access Tokens</a></li>
-                      <li>2. Click "Generate new token (classic)"</li>
+                      <li>2. Click &quot;Generate new token (classic)&quot;</li>
                       <li>3. Select scopes: <code>repo</code>, <code>read:user</code></li>
                       <li>4. Copy the token and paste it when connecting</li>
                     </ol>
