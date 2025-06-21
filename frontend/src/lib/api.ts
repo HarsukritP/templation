@@ -8,7 +8,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       if (errorText) {
         errorMessage += ` - ${errorText}`
       }
-    } catch (e) {
+    } catch {
       // Ignore error reading response text
     }
     console.error(errorMessage)
@@ -50,7 +50,7 @@ export class ApiClient {
     return handleResponse<T>(response)
   }
 
-  static async post<T>(endpoint: string, data?: any): Promise<T> {
+  static async post<T>(endpoint: string, data?: unknown): Promise<T> {
     const headers = await this.getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
@@ -61,7 +61,7 @@ export class ApiClient {
     return handleResponse<T>(response)
   }
 
-  static async put<T>(endpoint: string, data?: any): Promise<T> {
+  static async put<T>(endpoint: string, data?: unknown): Promise<T> {
     const headers = await this.getAuthHeaders()
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
@@ -94,12 +94,12 @@ export const api = {
   // Template endpoints
   getTemplates: () => ApiClient.get('/api/templates'),
   getTemplate: (id: string) => ApiClient.get(`/api/templates/${id}`),
-  createTemplate: (data: any) => ApiClient.post('/api/templates', data),
-  updateTemplate: (id: string, data: any) => ApiClient.put(`/api/templates/${id}`, data),
+  createTemplate: (data: unknown) => ApiClient.post('/api/templates', data),
+  updateTemplate: (id: string, data: unknown) => ApiClient.put(`/api/templates/${id}`, data),
   deleteTemplate: (id: string) => ApiClient.delete(`/api/templates/${id}`),
   
   // Repository endpoints
-  analyzeRepository: (data: any) => ApiClient.post('/api/repositories/analyze', data),
+  analyzeRepository: (data: unknown) => ApiClient.post('/api/repositories/analyze', data),
   getRepositories: () => ApiClient.get('/api/repositories'),
   
   // Search endpoints
