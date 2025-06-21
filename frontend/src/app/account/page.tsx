@@ -107,7 +107,7 @@ export default function AccountPage() {
           args: ["@templation/mcp-server"],
           env: {
             TEMPLATION_API_KEY: apiKey,
-            TEMPLATION_API_URL: "https://api.templation.com"
+            TEMPLATION_API_URL: "https://templation-backend.up.railway.app"
           }
         }
       }

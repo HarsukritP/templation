@@ -7,11 +7,12 @@ Transform GitHub repositories into personalized templates with AI assistance dir
 ### 1. Install the MCP Server
 
 ```bash
-# Clone the repository (if you haven't already)
+# Install globally via npm
+npm install -g @templation/mcp-server
+
+# Or if you prefer to run from source:
 git clone https://github.com/your-username/templation.git
 cd templation/mcp-server
-
-# Install dependencies and build
 npm install
 npm run build
 ```
@@ -37,8 +38,8 @@ Add this configuration:
 {
   "mcpServers": {
     "templation": {
-      "command": "node",
-      "args": ["/path/to/templation/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["@templation/mcp-server"],
       "env": {
         "TEMPLATION_API_KEY": "your_api_key_here",
         "TEMPLATION_API_URL": "https://templation-backend.up.railway.app"
@@ -47,8 +48,6 @@ Add this configuration:
   }
 }
 ```
-
-**Important**: Replace `/path/to/templation/mcp-server/dist/index.js` with the actual path to your built MCP server.
 
 ### 4. Configure Cursor (Alternative)
 
@@ -59,8 +58,8 @@ If you're using Cursor, add this to your Cursor settings:
   "mcp": {
     "servers": {
       "templation": {
-        "command": "node",
-        "args": ["/path/to/templation/mcp-server/dist/index.js"],
+        "command": "npx",
+        "args": ["@templation/mcp-server"],
         "env": {
           "TEMPLATION_API_KEY": "your_api_key_here",
           "TEMPLATION_API_URL": "https://templation-backend.up.railway.app"
@@ -114,8 +113,8 @@ Get your dashboard statistics (templates, repositories, etc.).
 
 ### "Server failed to start" Error
 - Check that Node.js is installed (`node --version`)
-- Verify the path to `dist/index.js` is correct
-- Make sure you ran `npm run build` first
+- Make sure the package is installed (`npm list -g @templation/mcp-server`)
+- Try reinstalling: `npm install -g @templation/mcp-server`
 
 ### "No templates found" Error
 - Create some templates in the Templation web app first
@@ -133,11 +132,11 @@ You can test the MCP server locally:
 ```bash
 # Test tool listing
 echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | \
-  TEMPLATION_API_KEY=your_key_here node dist/index.js
+  TEMPLATION_API_KEY=your_key_here npx @templation/mcp-server
 
 # Test user info (replace with your actual API key)
 echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_user_info", "arguments": {}}}' | \
-  TEMPLATION_API_KEY=your_key_here node dist/index.js
+  TEMPLATION_API_KEY=your_key_here npx @templation/mcp-server
 ```
 
 ## 📝 Development
