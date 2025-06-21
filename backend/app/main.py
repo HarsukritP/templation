@@ -379,6 +379,48 @@ async def database_status():
             "message": "Failed to check database status"
         }
 
+@app.post("/debug/migrate-repository-column")
+async def migrate_repository_column():
+    """Add repository_id column to templates table"""
+    try:
+        from sqlalchemy import text
+        from app.db.database import engine
+        
+        if not engine:
+            return {"error": "Database engine not available"}
+        
+        async with engine.begin() as conn:
+            # Check if column already exists
+            result = await conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'templates' AND column_name = 'repository_id'
+            """))
+            
+            if result.fetchone():
+                return {"message": "repository_id column already exists"}
+            
+            # Add the column
+            await conn.execute(text("""
+                ALTER TABLE templates 
+                ADD COLUMN repository_id VARCHAR
+            """))
+            
+            # Add foreign key constraint
+            await conn.execute(text("""
+                ALTER TABLE templates 
+                ADD CONSTRAINT fk_templates_repository_id 
+                FOREIGN KEY (repository_id) REFERENCES repositories(id)
+            """))
+            
+            return {"message": "Successfully added repository_id column to templates table"}
+            
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Migration failed"
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

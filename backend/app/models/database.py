@@ -31,6 +31,7 @@ class Template(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    repository_id = Column(String, ForeignKey("repositories.id"), nullable=True)  # Source repository
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     source_repo_url = Column(String, nullable=False)  # Original GitHub repo
