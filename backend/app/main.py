@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
 import os
 
-from app.routers import auth, search, templates, users, api_keys
+from app.routers import auth, search, templates, users, api_keys, mcp
 from app.db.redis_client import init_redis
 from app.db.database import init_database, close_database, get_database
 from app.models.database import Base
@@ -53,6 +53,7 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["api-keys"])
 app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(templates.router, prefix="/api", tags=["templates"])
+app.include_router(mcp.router, prefix="/api", tags=["mcp"])
 
 @app.get("/")
 async def root():

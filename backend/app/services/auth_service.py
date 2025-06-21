@@ -112,4 +112,44 @@ async def get_user_from_api_key(api_key: str, db) -> Optional[User]:
     
     except Exception as e:
         print(f"API key authentication failed: {str(e)}")
-        return None 
+        return None
+
+async def get_current_user_from_api_key(
+    authorization: Optional[str] = Header(None),
+    db = Depends(get_database)
+) -> User:
+    """Get current user from API key (for MCP server endpoints)"""
+    try:
+        if not authorization:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authorization header required"
+            )
+        
+        # Extract API key from Bearer token
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization format. Use: Bearer <api_key>"
+            )
+        
+        api_key = authorization[7:]  # Remove "Bearer " prefix
+        
+        # Authenticate with API key
+        user = await get_user_from_api_key(api_key, db)
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key"
+            )
+        
+        return user
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"API key authentication failed: {str(e)}"
+        ) 
