@@ -1,11 +1,21 @@
-// Debug environment variables
-console.log('=== RUNTIME DEBUG ===');
-console.log('process.env.NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
+// Railway-specific fix: Use production URL when in production and env var is missing
+const getApiBaseUrl = () => {
+  // If explicitly set, use it
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  
+  // If in production and no env var (Railway issue), use production URL
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://templation-api.up.railway.app';
+  }
+  
+  // Development fallback
+  return 'http://localhost:8000';
+};
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-console.log('API_BASE_URL configured as:', API_BASE_URL);
-console.log('====================')
+const API_BASE_URL = getApiBaseUrl();
+console.log('API_BASE_URL resolved to:', API_BASE_URL);
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -117,9 +127,7 @@ export const api = {
   // GitHub OAuth endpoints (public)
   getGithubOAuthStatus: async () => {
     try {
-      console.log('Fetching OAuth status from:', `${API_BASE_URL}/api/auth/github/status`)
       const response = await fetch(`${API_BASE_URL}/api/auth/github/status`)
-      console.log('OAuth status response status:', response.status)
       
       if (!response.ok) {
         console.error('OAuth status request failed:', response.status, response.statusText)
@@ -127,7 +135,6 @@ export const api = {
       }
       
       const data = await response.json()
-      console.log('OAuth status data:', data)
       return data
     } catch (error) {
       console.error('Error fetching OAuth status:', error)
