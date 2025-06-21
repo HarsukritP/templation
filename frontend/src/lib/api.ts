@@ -140,13 +140,26 @@ export const api = {
       return { configured: false, client_id: null }
     }
   },
-  initiateGithubOAuth: async () => {
-    // Since we know the OAuth endpoint works from our curl test,
-    // let's build the OAuth URL directly to avoid CORS issues
+  initiateGithubOAuth: () => {
+    // Since CORS is blocking our fetch requests, let's create a form
+    // and submit it to avoid CORS issues while still sending the user ID
     const testUserId = 'auth0|test-user-123';
     
-    // Navigate directly to the OAuth login endpoint
-    // The browser will naturally follow the redirect to GitHub
-    window.location.href = `${API_BASE_URL}/api/auth/github/login?user_id=${encodeURIComponent(testUserId)}`;
+    // Create a temporary form to submit the request
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = `${API_BASE_URL}/api/auth/github/login`;
+    
+    // Add user ID as a hidden input
+    const userIdInput = document.createElement('input');
+    userIdInput.type = 'hidden';
+    userIdInput.name = 'user_id';
+    userIdInput.value = testUserId;
+    form.appendChild(userIdInput);
+    
+    // Submit the form
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
   },
 } 
