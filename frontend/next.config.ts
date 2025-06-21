@@ -3,6 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  experimental: {
+    serverComponentsExternalPackages: [],
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
