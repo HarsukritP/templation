@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.routers import auth, search, templates, users
+from app.routers import auth, search, templates, users, api_keys
 from app.db.redis_client import init_redis
 from app.db.database import init_database, close_database
 
@@ -45,6 +45,7 @@ async def shutdown_event():
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(api_keys.router, prefix="/api/api-keys", tags=["api-keys"])
 app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(templates.router, prefix="/api", tags=["templates"])
 

@@ -105,4 +105,11 @@ export const api = {
   // Search endpoints
   searchTemplates: (query: string) => ApiClient.get(`/api/search/templates?q=${encodeURIComponent(query)}`),
   searchRepositories: (query: string) => ApiClient.get(`/api/search/repositories?q=${encodeURIComponent(query)}`),
+  
+  // API Key endpoints
+  getApiKeys: () => ApiClient.get('/api/api-keys/'),
+  createApiKey: (name: string, expiresInDays?: number) => ApiClient.post('/api/api-keys/', { name, expires_in_days: expiresInDays }),
+  deleteApiKey: (keyId: string) => ApiClient.delete(`/api/api-keys/${keyId}`),
+  toggleApiKey: (keyId: string) => ApiClient.put(`/api/api-keys/${keyId}/toggle`),
+  getApiKeyUsage: (keyId: string) => ApiClient.get(`/api/api-keys/${keyId}/usage`),
 } 

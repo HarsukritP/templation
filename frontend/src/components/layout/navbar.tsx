@@ -43,12 +43,6 @@ export function Navbar() {
                 >
                   Templates
                 </Link>
-                <Link
-                  href="/api-keys"
-                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-                >
-                  API Keys
-                </Link>
               </>
             )}
             <Link

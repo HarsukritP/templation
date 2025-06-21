@@ -105,15 +105,13 @@ async def get_current_user(
 async def get_user_from_api_key(api_key: str) -> Optional[User]:
     """Get user from API key (for MCP server authentication)"""
     try:
-        user_id = await get_json(f"api_key:{api_key}")
-        if not user_id:
-            return None
+        from app.services.api_key_service import APIKeyService
+        from app.db.database import get_database
         
-        user_data = await get_json(f"user:{user_id}")
-        if not user_data:
-            return None
-        
-        return User(**user_data)
+        async with get_database() as db:
+            user = await APIKeyService.authenticate_api_key(api_key, db)
+            return user
     
-    except Exception:
+    except Exception as e:
+        logger.error(f"API key authentication failed: {str(e)}")
         return None 
