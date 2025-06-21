@@ -15,7 +15,7 @@ import { useUser } from "@auth0/nextjs-auth0"
 // Public navigation items (always visible)
 const publicItems = [
   {
-    title: "Setup Guide",
+    title: "README",
     href: "/setup",
     icon: BookOpen,
   },
