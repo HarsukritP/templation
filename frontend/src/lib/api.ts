@@ -140,5 +140,30 @@ export const api = {
       return { configured: false, client_id: null }
     }
   },
-  initiateGithubOAuth: () => window.location.href = `${API_BASE_URL}/api/auth/github/login`,
+  initiateGithubOAuth: async () => {
+    // Use the same auth headers as other API calls
+    const testUserId = 'auth0|test-user-123';
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-User-ID': testUserId,
+    };
+    
+    const response = await fetch(`${API_BASE_URL}/api/auth/github/login`, {
+      method: 'GET',
+      headers,
+      redirect: 'manual' // Don't follow redirects automatically
+    })
+    
+    if (response.status === 302 || response.status === 301) {
+      // Get the redirect URL and navigate to it
+      const location = response.headers.get('Location')
+      if (location) {
+        window.location.href = location
+      } else {
+        throw new Error('No redirect location provided')
+      }
+    } else if (!response.ok) {
+      throw new Error(`OAuth initiation failed: ${response.status} ${response.statusText}`)
+    }
+  },
 } 

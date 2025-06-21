@@ -25,18 +25,22 @@ if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
 
 @router.get("/login")
 async def github_oauth_login(
-    current_user: User = Depends(get_current_user)
+    request: Request
 ):
     """Initiate GitHub OAuth flow"""
     if not GITHUB_CLIENT_ID:
         raise HTTPException(status_code=500, detail="GitHub OAuth not configured")
     
+    # Get user ID from request headers (set by frontend)
+    user_id = request.headers.get("X-User-ID")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID required for OAuth flow")
+    
     # Generate state parameter to prevent CSRF
     state = secrets.token_urlsafe(32)
     
-    # Store state in user session (in production, use Redis/database)
-    # For now, we'll include user ID in state for simplicity
-    state_with_user = f"{state}:{current_user.id}"
+    # Store state with user ID for callback verification
+    state_with_user = f"{state}:{user_id}"
     
     # GitHub OAuth authorization URL
     params = {
