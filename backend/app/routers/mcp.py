@@ -5,8 +5,8 @@ from typing import Optional, List, Dict, Any
 from app.db.database import get_database
 from app.services.auth_service import get_current_user_from_api_key
 from app.services.user_service import UserService
-from app.services.template_service import TemplateService
-from app.services.github_service import GitHubService
+from app.services import template_service
+from app.services import github_service
 from app.models.database import User
 
 router = APIRouter()
@@ -50,7 +50,7 @@ async def search_templates_mcp(
     """Search user templates for MCP server"""
     try:
         # For now, get all user templates and filter by search query
-        all_templates = await TemplateService.get_user_templates(current_user.id)
+        all_templates = await template_service.get_user_templates(current_user.id)
         
         # Simple text-based filtering
         templates = [
@@ -93,7 +93,7 @@ async def search_exemplar_mcp(
             max_age_days=max_age_days
         )
         
-        results = await GitHubService.search_github_repos(description, filters)
+        results = await github_service.search_github_repos(description, filters)
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search exemplar repositories: {str(e)}")
@@ -111,7 +111,7 @@ async def convert_template_mcp(
         from app.models.schemas import UserContext
         user_ctx = UserContext(**user_context) if user_context else None
         
-        result = await TemplateService.convert_repo_to_template(
+        result = await template_service.convert_repo_to_template(
             repo_url,
             template_description,
             user_ctx,
