@@ -76,6 +76,11 @@ class SearchResult(BaseModel):
     total_found: int
     search_time_ms: int
 
+# Repository analysis models
+class RepositoryAnalysisRequest(BaseModel):
+    github_url: str
+    description: Optional[str] = None
+
 # Template conversion models
 class UserContext(BaseModel):
     project_name: Optional[str] = None
