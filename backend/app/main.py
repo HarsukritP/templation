@@ -360,6 +360,25 @@ async def test_auth(
             "message": "Authentication test failed"
         }
 
+@app.get("/debug/database-status")
+async def database_status():
+    """Check the status of database initialization"""
+    try:
+        from app.db.database import engine, AsyncSessionLocal, DATABASE_URL
+        
+        return {
+            "database_url_exists": bool(DATABASE_URL),
+            "engine_exists": engine is not None,
+            "session_factory_exists": AsyncSessionLocal is not None,
+            "engine_type": str(type(engine)) if engine else None,
+            "session_factory_type": str(type(AsyncSessionLocal)) if AsyncSessionLocal else None
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to check database status"
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

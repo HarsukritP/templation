@@ -39,7 +39,7 @@ async def init_database():
     global engine, AsyncSessionLocal
     
     if not DATABASE_URL:
-        logger.warning("DATABASE_URL environment variable not set - database features will be disabled")
+        logger.error("DATABASE_URL environment variable not set - database features will be disabled")
         return
     
     try:
@@ -56,43 +56,59 @@ async def init_database():
         )
         
         # Test connection
+        logger.info("Testing database connection...")
         async with engine.begin() as conn:
-            # Test the connection
-            await conn.execute("SELECT 1")
+            from sqlalchemy import text
+            await conn.execute(text("SELECT 1"))
+        logger.info("Database connection test successful")
         
         # Create session factory
+        logger.info("Creating session factory...")
         AsyncSessionLocal = async_sessionmaker(
             engine,
             class_=AsyncSession,
             expire_on_commit=False
         )
+        logger.info("Session factory created successfully")
         
         # Create tables
+        logger.info("Creating database tables...")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
         
-        logger.info("Database initialized successfully")
+        logger.info("Database initialization completed successfully")
         
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
-        logger.warning("Database features will be disabled")
+        logger.error(f"Database URL (masked): {async_url[:20]}...")
+        logger.error("Database features will be disabled")
         engine = None
         AsyncSessionLocal = None
+        raise  # Re-raise to see the error in startup logs
 
 async def get_database() -> AsyncGenerator[AsyncSession, None]:
     """Get database session"""
     if AsyncSessionLocal is None:
-        raise Exception("Database not available - please check DATABASE_URL configuration")
+        logger.error("AsyncSessionLocal is None - database was not properly initialized")
+        logger.error(f"ENGINE state: {engine}")
+        logger.error(f"DATABASE_URL exists: {bool(DATABASE_URL)}")
+        raise Exception("Database not available - AsyncSessionLocal is None. Check startup logs for initialization errors.")
     
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception as e:
-            await session.rollback()
-            logger.error(f"Database session error: {e}")
-            raise
-        finally:
-            await session.close()
+    try:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+            except Exception as e:
+                logger.error(f"Database session error: {e}")
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+    except Exception as e:
+        logger.error(f"Error creating database session: {e}")
+        logger.error(f"AsyncSessionLocal type: {type(AsyncSessionLocal)}")
+        raise
 
 async def close_database():
     """Close database connections"""
