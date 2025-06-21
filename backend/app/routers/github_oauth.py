@@ -83,9 +83,11 @@ async def github_oauth_callback(
     try:
         # Extract user ID from state
         if ":" not in state:
+            logger.error(f"Invalid state format: {state}")
             raise ValueError("Invalid state format")
         
         state_token, user_id = state.rsplit(":", 1)
+        logger.info(f"Processing OAuth callback for user_id: {user_id}")
         
         # Exchange code for access token
         async with httpx.AsyncClient() as client:
