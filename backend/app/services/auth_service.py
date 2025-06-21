@@ -7,6 +7,7 @@ import os
 
 from app.models.schemas import User
 from app.services.user_service import UserService
+from app.db.database import get_database
 
 security = HTTPBearer(auto_error=False)
 
@@ -57,7 +58,8 @@ async def verify_auth0_token(token: str) -> dict:
 
 async def get_current_user(
     x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
-    token = Depends(security)
+    token = Depends(security),
+    db = Depends(get_database)
 ) -> User:
     """Get current user from Auth0 user ID or token"""
     try:
@@ -78,21 +80,19 @@ async def get_current_user(
             )
         
         # Get user from database
-        from app.db.database import get_database
-        async with get_database() as db:
-            user = await UserService.get_user_by_auth0_id(auth0_id, db)
-            
-            if not user:
-                # For now, create a minimal user record
-                # In production, you'd want to fetch full user data from Auth0
-                minimal_user_data = {
-                    "sub": auth0_id,
-                    "email": f"user-{auth0_id.split('|')[-1]}@example.com",
-                    "name": "User"
-                }
-                user = await UserService.get_or_create_user(minimal_user_data, db)
-            
-            return user
+        user = await UserService.get_user_by_auth0_id(auth0_id, db)
+        
+        if not user:
+            # For now, create a minimal user record
+            # In production, you'd want to fetch full user data from Auth0
+            minimal_user_data = {
+                "sub": auth0_id,
+                "email": f"user-{auth0_id.split('|')[-1]}@example.com",
+                "name": "User"
+            }
+            user = await UserService.get_or_create_user(minimal_user_data, db)
+        
+        return user
     
     except HTTPException:
         raise
@@ -102,16 +102,14 @@ async def get_current_user(
             detail=f"Authentication failed: {str(e)}"
         )
 
-async def get_user_from_api_key(api_key: str) -> Optional[User]:
+async def get_user_from_api_key(api_key: str, db) -> Optional[User]:
     """Get user from API key (for MCP server authentication)"""
     try:
         from app.services.api_key_service import APIKeyService
-        from app.db.database import get_database
         
-        async with get_database() as db:
-            user = await APIKeyService.authenticate_api_key(api_key, db)
-            return user
+        user = await APIKeyService.authenticate_api_key(api_key, db)
+        return user
     
     except Exception as e:
-        logger.error(f"API key authentication failed: {str(e)}")
+        print(f"API key authentication failed: {str(e)}")
         return None 
