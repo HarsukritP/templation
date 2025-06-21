@@ -107,7 +107,10 @@ export const api = {
   connectGithub: (username: string, accessToken: string) => ApiClient.post('/api/users/github/connect', { github_username: username, access_token: accessToken }),
   disconnectGithub: () => ApiClient.post('/api/users/github/disconnect'),
   
-  // GitHub OAuth endpoints
-  getGithubOAuthStatus: () => ApiClient.get('/api/auth/github/status'),
+  // GitHub OAuth endpoints (public)
+  getGithubOAuthStatus: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/github/status`)
+    return response.json()
+  },
   initiateGithubOAuth: () => window.location.href = `${API_BASE_URL}/api/auth/github/login`,
 } 

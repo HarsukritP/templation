@@ -136,7 +136,7 @@ async def github_oauth_callback(
 
 @router.get("/status")
 async def github_oauth_status():
-    """Check if GitHub OAuth is configured"""
+    """Check if GitHub OAuth is configured (public endpoint)"""
     return {
         "configured": bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET),
         "client_id": GITHUB_CLIENT_ID[:8] + "..." if GITHUB_CLIENT_ID else None
