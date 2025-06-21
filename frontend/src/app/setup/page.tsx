@@ -67,8 +67,8 @@ await templation.convertRepository({
             <div className="inline-flex items-center space-x-3 bg-gray-900 text-green-400 px-6 py-3 rounded-lg font-mono text-sm">
               <Terminal className="h-4 w-4" />
               <span>README.md</span>
-            </div>
-            
+        </div>
+        
             <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">
               # Templation
             </h1>
@@ -183,7 +183,7 @@ await templation.convertRepository({
               ))}
             </div>
           </div>
-
+          
           {/* MCP Integration */}
           <Card className="border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50">
             <CardHeader>
@@ -319,7 +319,7 @@ await templation.convertRepository({
               ))}
             </div>
           </div>
-
+          
           {/* Get Started */}
           <Card className="border-2 border-green-100 bg-gradient-to-br from-green-50 to-emerald-50">
             <CardHeader>

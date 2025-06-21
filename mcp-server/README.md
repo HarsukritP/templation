@@ -48,9 +48,9 @@ Add to your Cursor MCP settings (`~/.cursor-mcp/config.json`):
 
 ```json
 {
-  "templation": {
+    "templation": {
     "command": "mcp-server",
-    "env": {
+      "env": {
       "TEMPLATION_API_KEY": "your-api-key-here"
     }
   }
@@ -63,9 +63,9 @@ For enhanced AI analysis, add OpenAI or Anthropic API keys:
 
 ```json
 {
-  "templation": {
+      "templation": {
     "command": "mcp-server",
-    "env": {
+        "env": {
       "TEMPLATION_API_KEY": "your-api-key-here",
       "OPENAI_API_KEY": "your-openai-key-here",
       "ANTHROPIC_API_KEY": "your-anthropic-key-here"
