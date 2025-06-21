@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Plus, Github, FileText, Clock, Star } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useEffect, useState } from "react"
+import Link from "next/link"
 
 interface DashboardStats {
   total_templates: number
@@ -129,10 +130,12 @@ export default function DashboardPage() {
                 {error ? 'Error loading data' : 'Manage your templates and explore new repositories'}
               </p>
             </div>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Template
-            </Button>
+            <Link href="/templates">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Template
+              </Button>
+            </Link>
           </div>
 
           {error && (
@@ -218,10 +221,12 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mb-4">
                       Start by analyzing your first GitHub repository to create a template.
                     </p>
-                    <Button>
-                      <Github className="mr-2 h-4 w-4" />
-                      Analyze Repository
-                    </Button>
+                    <Link href="/templates">
+                      <Button>
+                        <Github className="mr-2 h-4 w-4" />
+                        Analyze Repository
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -287,10 +292,12 @@ export default function DashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full">
-                    <Github className="mr-2 h-4 w-4" />
-                    Start Analysis
-                  </Button>
+                  <Link href="/templates">
+                    <Button className="w-full">
+                      <Github className="mr-2 h-4 w-4" />
+                      Start Analysis
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -302,10 +309,12 @@ export default function DashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full">
-                    <FileText className="mr-2 h-4 w-4" />
-                    View All Templates
-                  </Button>
+                  <Link href="/templates">
+                    <Button variant="outline" className="w-full">
+                      <FileText className="mr-2 h-4 w-4" />
+                      View All Templates
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>

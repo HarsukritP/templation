@@ -106,6 +106,8 @@ export const api = {
   // Repository endpoints
   analyzeRepository: (data: unknown) => ApiClient.post('/api/repositories/analyze', data),
   getRepositories: () => ApiClient.get('/api/repositories'),
+  getRepository: (id: string) => ApiClient.get(`/api/repositories/${id}`),
+  deleteRepository: (id: string) => ApiClient.delete(`/api/repositories/${id}`),
   
   // Search endpoints
   searchTemplates: (query: string) => ApiClient.get(`/api/search/templates?q=${encodeURIComponent(query)}`),
