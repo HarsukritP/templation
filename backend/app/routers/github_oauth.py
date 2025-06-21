@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib.parse import urlencode
@@ -26,7 +26,7 @@ if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
 @router.get("/login")
 async def github_oauth_login(
     request: Request,
-    user_id: str = None
+    user_id: str = Query(None)
 ):
     """Initiate GitHub OAuth flow"""
     if not GITHUB_CLIENT_ID:
