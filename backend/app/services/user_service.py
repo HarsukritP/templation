@@ -136,13 +136,21 @@ class UserService:
     @staticmethod
     async def connect_github_account(user_id: str, github_username: str, github_access_token: str, db: AsyncSession) -> User:
         """Connect GitHub account to user"""
+        # Try to find user by database ID first, then by Auth0 ID
         result = await db.execute(
             select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         
+        # If not found by database ID, try Auth0 ID (for OAuth flow)
         if not user:
-            raise ValueError("User not found")
+            result = await db.execute(
+                select(User).where(User.auth0_id == user_id)
+            )
+            user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError(f"User not found with ID: {user_id}")
         
         # Update GitHub info
         user.github_username = github_username
@@ -158,13 +166,21 @@ class UserService:
     @staticmethod
     async def disconnect_github_account(user_id: str, db: AsyncSession) -> User:
         """Disconnect GitHub account from user"""
+        # Try to find user by database ID first, then by Auth0 ID
         result = await db.execute(
             select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         
+        # If not found by database ID, try Auth0 ID
         if not user:
-            raise ValueError("User not found")
+            result = await db.execute(
+                select(User).where(User.auth0_id == user_id)
+            )
+            user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError(f"User not found with ID: {user_id}")
         
         # Clear GitHub info
         old_username = user.github_username
@@ -181,13 +197,21 @@ class UserService:
     @staticmethod
     async def get_github_connection_status(user_id: str, db: AsyncSession) -> Dict[str, Any]:
         """Get GitHub connection status for user"""
+        # Try to find user by database ID first, then by Auth0 ID
         result = await db.execute(
             select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         
+        # If not found by database ID, try Auth0 ID
         if not user:
-            raise ValueError("User not found")
+            result = await db.execute(
+                select(User).where(User.auth0_id == user_id)
+            )
+            user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError(f"User not found with ID: {user_id}")
         
         return {
             "connected": user.github_connected,
