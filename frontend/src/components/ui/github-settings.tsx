@@ -24,17 +24,10 @@ export default function GitHubSettings({ onStatusChange }: GitHubSettingsProps) 
   const fetchGitHubStatus = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/users/github/status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
-        onStatusChange?.(data);
-      }
+      const { api } = await import('../../lib/api');
+      const data = await api.getGithubStatus() as GitHubStatus;
+      setStatus(data);
+      onStatusChange?.(data);
     } catch (error) {
       console.error('Failed to fetch GitHub status:', error);
     } finally {
@@ -54,21 +47,10 @@ export default function GitHubSettings({ onStatusChange }: GitHubSettingsProps) 
 
     try {
       setConnecting(true);
-      const response = await fetch('/api/users/github/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify({
-          github_username: githubUsername.trim(),
-          access_token: accessToken.trim(),
-        }),
-      });
-
-      const data = await response.json();
+      const { api } = await import('../../lib/api');
+      const data = await api.connectGithub(githubUsername.trim(), accessToken.trim()) as { success: boolean; github_username?: string; detail?: string };
       
-      if (response.ok && data.success) {
+      if (data.success) {
         await fetchGitHubStatus();
         setGithubUsername('');
         setAccessToken('');
@@ -90,16 +72,10 @@ export default function GitHubSettings({ onStatusChange }: GitHubSettingsProps) 
 
     try {
       setConnecting(true);
-      const response = await fetch('/api/users/github/disconnect', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      });
-
-      const data = await response.json();
+      const { api } = await import('../../lib/api');
+      const data = await api.disconnectGithub() as { success: boolean; detail?: string };
       
-      if (response.ok && data.success) {
+      if (data.success) {
         await fetchGitHubStatus();
         alert('Successfully disconnected GitHub account');
       } else {
