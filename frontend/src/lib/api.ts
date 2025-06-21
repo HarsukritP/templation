@@ -2,21 +2,27 @@
 const getApiBaseUrl = () => {
   // If explicitly set, use it
   if (process.env.NEXT_PUBLIC_API_URL) {
+    console.log('Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
   // If in production and no env var (Railway issue), use production URL
   if (process.env.NODE_ENV === 'production') {
+    console.log('Using production URL: https://templation-api.up.railway.app');
     return 'https://templation-api.up.railway.app';
   }
   
   // Development fallback
+  console.log('Using development URL: http://localhost:8000');
   return 'http://localhost:8000';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('Final API_BASE_URL:', API_BASE_URL);
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  console.log('API Response:', response.status, response.statusText, response.url);
+  
   if (!response.ok) {
     let errorMessage = `API call failed: ${response.status} ${response.statusText}`
     try {
@@ -27,7 +33,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     } catch {
       // Ignore error reading response text
     }
-    console.error(errorMessage)
+    console.error('API Error:', errorMessage)
     throw new Error(errorMessage)
   }
   return response.json()
@@ -47,7 +53,10 @@ export class ApiClient {
 
   static async get<T>(endpoint: string): Promise<T> {
     const headers = await this.getAuthHeaders()
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log('Making GET request to:', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers,
     })
@@ -57,7 +66,10 @@ export class ApiClient {
 
   static async post<T>(endpoint: string, data?: unknown): Promise<T> {
     const headers = await this.getAuthHeaders()
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log('Making POST request to:', url, 'with data:', data);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       body: data ? JSON.stringify(data) : undefined,
