@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+console.log('API_BASE_URL configured as:', API_BASE_URL)
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -109,8 +110,23 @@ export const api = {
   
   // GitHub OAuth endpoints (public)
   getGithubOAuthStatus: async () => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/github/status`)
-    return response.json()
+    try {
+      console.log('Fetching OAuth status from:', `${API_BASE_URL}/api/auth/github/status`)
+      const response = await fetch(`${API_BASE_URL}/api/auth/github/status`)
+      console.log('OAuth status response status:', response.status)
+      
+      if (!response.ok) {
+        console.error('OAuth status request failed:', response.status, response.statusText)
+        return { configured: false, client_id: null }
+      }
+      
+      const data = await response.json()
+      console.log('OAuth status data:', data)
+      return data
+    } catch (error) {
+      console.error('Error fetching OAuth status:', error)
+      return { configured: false, client_id: null }
+    }
   },
   initiateGithubOAuth: () => window.location.href = `${API_BASE_URL}/api/auth/github/login`,
 } 
