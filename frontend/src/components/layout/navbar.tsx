@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 
 export function Navbar() {
-  // For now, we'll use a simple state. Auth0 will be added later
+  // For now, we'll use a simple state. Auth0 will be integrated properly
   const user = null
   const isLoading = false
 
@@ -33,17 +33,19 @@ export function Navbar() {
               Dashboard
             </Link>
             <Link
-              href="/templates"
-              className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-            >
-              Templates
-            </Link>
-            <Link
               href="/setup"
               className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
             >
               Setup
             </Link>
+            {user && (
+              <Link
+                href="/api-keys"
+                className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+              >
+                API Keys
+              </Link>
+            )}
           </div>
 
           {/* Auth Section */}
@@ -57,14 +59,14 @@ export function Navbar() {
                     <User className="h-4 w-4" />
                   </Button>
                 </Link>
-                <a href="/api/auth/logout">
+                <a href="/auth/logout">
                   <Button variant="outline" size="sm" className="rounded-full px-4 h-8 text-xs">
                     Logout
                   </Button>
                 </a>
               </div>
             ) : (
-              <a href="/api/auth/login">
+              <a href="/auth/login">
                 <Button size="sm" className="rounded-full px-4 h-8 text-xs">
                   Login
                 </Button>
