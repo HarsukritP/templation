@@ -154,8 +154,8 @@ export const api = {
       redirect: 'manual' // Don't follow redirects automatically
     })
     
-    if (response.status === 302 || response.status === 301) {
-      // Get the redirect URL and navigate to it
+    // Handle all redirect status codes (301, 302, 307, 308)
+    if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('Location')
       if (location) {
         window.location.href = location
@@ -163,7 +163,8 @@ export const api = {
         throw new Error('No redirect location provided')
       }
     } else if (!response.ok) {
-      throw new Error(`OAuth initiation failed: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      throw new Error(`OAuth initiation failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
   },
 } 
