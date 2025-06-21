@@ -32,6 +32,11 @@ interface GitHubStatus {
   has_access_token: boolean
 }
 
+interface GitHubOAuthStatus {
+  configured: boolean
+  client_id: string | null
+}
+
 export default function AccountPage() {
   const { user } = useUser()
   const [activeTab, setActiveTab] = useState('profile')
@@ -40,6 +45,7 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null)
   const [githubStatus, setGithubStatus] = useState<GitHubStatus | null>(null)
   const [githubLoading, setGithubLoading] = useState(false)
+  const [githubOAuthStatus, setGithubOAuthStatus] = useState<GitHubOAuthStatus | null>(null)
 
   useEffect(() => {
     if (activeTab === 'api-keys' && user) {
@@ -47,8 +53,36 @@ export default function AccountPage() {
     }
     if (activeTab === 'profile' && user) {
       fetchGithubStatus()
+      fetchGithubOAuthStatus()
     }
   }, [activeTab, user])
+
+  // Handle OAuth callback success/error messages
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    const error = urlParams.get('error')
+    const username = urlParams.get('username')
+
+    if (success === 'github_connected' && username) {
+      alert(`Successfully connected GitHub account: @${username}`)
+      fetchGithubStatus() // Refresh status
+      // Clean URL
+      window.history.replaceState({}, '', '/account')
+    } else if (error) {
+      const errorMessages = {
+        'github_oauth_denied': 'GitHub authorization was denied',
+        'github_oauth_invalid': 'Invalid OAuth response from GitHub',
+        'github_oauth_failed': 'Failed to complete GitHub authorization',
+        'github_api_failed': 'Unable to fetch your GitHub information',
+        'github_no_username': 'Could not retrieve your GitHub username',
+        'github_oauth_error': 'An error occurred during GitHub connection'
+      }
+      alert(`GitHub connection failed: ${errorMessages[error as keyof typeof errorMessages] || error}`)
+      // Clean URL
+      window.history.replaceState({}, '', '/account')
+    }
+  }, [])
 
   const fetchApiKeys = async () => {
     try {
@@ -118,6 +152,18 @@ export default function AccountPage() {
     }
   }
 
+  const fetchGithubOAuthStatus = async () => {
+    try {
+      const { api } = await import('../../lib/api')
+      const status = await api.getGithubOAuthStatus() as GitHubOAuthStatus
+      setGithubOAuthStatus(status)
+    } catch (err) {
+      console.error('Error fetching GitHub OAuth status:', err)
+      // Set default status if fetch fails
+      setGithubOAuthStatus({ configured: false, client_id: null })
+    }
+  }
+
   const handleDisconnectGithub = async () => {
     if (!confirm('Are you sure you want to disconnect your GitHub account?')) {
       return
@@ -137,14 +183,27 @@ export default function AccountPage() {
     }
   }
 
-  const handleConnectGithub = () => {
-    const username = prompt('Enter your GitHub username:')
-    if (!username) return
+  const handleConnectGithub = async () => {
+    // Check if OAuth is configured
+    if (githubOAuthStatus?.configured) {
+      // Use OAuth flow
+      try {
+        const { api } = await import('../../lib/api')
+        api.initiateGithubOAuth()
+      } catch (err) {
+        console.error('Error initiating GitHub OAuth:', err)
+        alert('Failed to start GitHub connection')
+      }
+    } else {
+      // Fallback to manual token entry
+      const username = prompt('Enter your GitHub username:')
+      if (!username) return
 
-    const token = prompt('Enter your GitHub personal access token:')
-    if (!token) return
+      const token = prompt('Enter your GitHub personal access token:')
+      if (!token) return
 
-    connectGithub(username, token)
+      connectGithub(username, token)
+    }
   }
 
   const connectGithub = async (username: string, token: string) => {
@@ -326,17 +385,31 @@ export default function AccountPage() {
                     </div>
                   )}
                   
-                  {/* GitHub Token Instructions */}
+                  {/* GitHub Instructions */}
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-2">
-                      <strong>Need a GitHub token?</strong>
-                    </p>
-                    <ol className="text-xs text-muted-foreground space-y-1">
-                      <li>1. Go to <a href="https://github.com/settings/tokens" target="_blank" className="text-blue-600 underline">GitHub Settings → Personal Access Tokens</a></li>
-                      <li>2. Click &quot;Generate new token (classic)&quot;</li>
-                      <li>3. Select scopes: <code>repo</code>, <code>read:user</code></li>
-                      <li>4. Copy the token and paste it when connecting</li>
-                    </ol>
+                    {githubOAuthStatus?.configured ? (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          <strong>✨ One-Click GitHub Integration</strong>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Click &quot;Connect GitHub&quot; above to securely authorize Templation to access your repositories. 
+                          You&apos;ll be redirected to GitHub to authorize access, then brought back here automatically.
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          <strong>Manual GitHub Token Required</strong>
+                        </p>
+                        <ol className="text-xs text-muted-foreground space-y-1">
+                          <li>1. Go to <a href="https://github.com/settings/tokens" target="_blank" className="text-blue-600 underline">GitHub Settings → Personal Access Tokens</a></li>
+                          <li>2. Click &quot;Generate new token (classic)&quot;</li>
+                          <li>3. Select scopes: <code>repo</code>, <code>read:user</code></li>
+                          <li>4. Copy the token and paste it when connecting</li>
+                        </ol>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
