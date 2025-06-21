@@ -62,8 +62,8 @@ export default function ApiKeysPage() {
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>• API keys are used to authenticate requests to the Templation API</p>
             <p>• Each key has full access to your account - treat them like passwords</p>
-            <p>• You can revoke keys at any time if they're compromised</p>
-            <p>• Keys are prefixed with 'tk_prod_' for production or 'tk_dev_' for development</p>
+            <p>• You can revoke keys at any time if they&apos;re compromised</p>
+            <p>• Keys are prefixed with &apos;tk_prod_&apos; for production or &apos;tk_dev_&apos; for development</p>
           </div>
         </CardContent>
       </Card>
