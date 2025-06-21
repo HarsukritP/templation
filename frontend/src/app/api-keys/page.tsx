@@ -361,21 +361,20 @@ export default function ApiKeysPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* API Key Preview */}
+                      {/* API Key Preview - No Copy Button */}
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">API Key</label>
                         <div className="flex items-center space-x-2 mt-1">
-                          <code className="flex-1 px-3 py-2 bg-muted rounded-md text-sm font-mono">
+                          <code className="flex-1 px-3 py-2 bg-muted rounded-md text-sm font-mono text-muted-foreground">
                             {apiKey.key_prefix}••••••••••••••••
                           </code>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(apiKey.key_prefix)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                          <span className="text-xs text-muted-foreground px-2">
+                            Hidden for security
+                          </span>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Full key was shown only once during creation
+                        </p>
                       </div>
 
                       {/* Stats */}
@@ -465,8 +464,8 @@ export default function ApiKeysPage() {
 
           {/* New API Key Modal */}
           {showNewKeyModal && newCreatedKey && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-              <Card className="w-full max-w-lg">
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-2xl">
                 <CardHeader className="text-center">
                   <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
                     <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -477,63 +476,87 @@ export default function ApiKeysPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Warning */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  {/* Critical Warning */}
+                  <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <h4 className="text-sm font-medium text-amber-800">Important!</h4>
-                        <p className="text-sm text-amber-700 mt-1">
-                          This is the only time you&apos;ll see your API key. Copy it now and store it securely.
+                        <h4 className="text-sm font-medium text-red-800">⚠️ IMPORTANT - READ CAREFULLY</h4>
+                        <p className="text-sm text-red-700 mt-1">
+                          This is the <strong>ONLY TIME</strong> you will ever see this API key. Once you close this modal, it will be permanently hidden for security reasons. <strong>Copy it now!</strong>
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* API Key Display */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Your API Key</label>
-                    <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm break-all">
-                      {newCreatedKey.key}
+                  {/* API Key Input Box */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-muted-foreground">Your API Key (copy this now)</label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={newCreatedKey.key}
+                        readOnly
+                        className="flex-1 px-4 py-3 bg-gray-900 text-green-400 border border-gray-600 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-green-500 select-all"
+                        onClick={(e) => e.currentTarget.select()}
+                      />
+                      <Button
+                        onClick={() => copyToClipboard(newCreatedKey.key)}
+                        className={`px-6 py-3 ${keyCopied ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        size="lg"
+                      >
+                        {keyCopied ? (
+                          <>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      💡 Tip: Click the text box to select all, then Ctrl+C (or Cmd+C) to copy
+                    </p>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex flex-col space-y-2">
+                  <div className="flex flex-col space-y-3 pt-4">
+                    {!keyCopied && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                        <p className="text-sm text-amber-800 font-medium">
+                          ⚠️ Please copy your API key before closing this modal
+                        </p>
+                      </div>
+                    )}
+                    
                     <Button
-                      onClick={() => copyToClipboard(newCreatedKey.key)}
-                      className={`w-full ${keyCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      onClick={() => setShowNewKeyModal(false)}
+                      className={`w-full ${keyCopied ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 hover:bg-gray-500'}`}
                       size="lg"
                     >
                       {keyCopied ? (
                         <>
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Copied to Clipboard!
+                          Done - I&apos;ve Saved My API Key
                         </>
                       ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy API Key
-                        </>
+                        'I understand - Close anyway (not recommended)'
                       )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowNewKeyModal(false)}
-                      className="w-full"
-                      disabled={!keyCopied}
-                    >
-                      {keyCopied ? 'Close' : 'I\'ll copy it later (not recommended)'}
                     </Button>
                   </div>
 
                   {/* Usage Instructions */}
-                  <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
-                    <p className="font-medium mb-1">How to use this API key:</p>
+                  <div className="text-xs text-muted-foreground bg-muted p-4 rounded-lg">
+                    <p className="font-medium mb-2">Next steps:</p>
                     <ul className="space-y-1">
+                      <li>• Save this key in a secure password manager</li>
                       <li>• Add it to your MCP server configuration</li>
-                      <li>• Use it in API requests with the Authorization header</li>
-                      <li>• Keep it secure and never share it publicly</li>
+                      <li>• Use it in API requests with: <code className="bg-gray-200 px-1 rounded">Authorization: Bearer YOUR_KEY</code></li>
+                      <li>• Never share it publicly or commit it to version control</li>
                     </ul>
                   </div>
                 </CardContent>
