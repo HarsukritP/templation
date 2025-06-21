@@ -1,5 +1,11 @@
+// Debug environment variables
+console.log('=== RUNTIME DEBUG ===');
+console.log('process.env.NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-console.log('API_BASE_URL configured as:', API_BASE_URL)
+console.log('API_BASE_URL configured as:', API_BASE_URL);
+console.log('====================')
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
