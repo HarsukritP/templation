@@ -8,12 +8,18 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
+import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-import { searchExemplar } from './functions/search-exemplar.js';
-import { templateConverter } from './functions/template-converter.js';
-import { validateApiKey } from './utils/auth.js';
 
 dotenv.config();
+
+const API_BASE_URL = process.env.TEMPLATION_API_URL || 'https://templation-backend.up.railway.app';
+const API_KEY = process.env.TEMPLATION_API_KEY;
+
+if (!API_KEY) {
+  console.error('❌ TEMPLATION_API_KEY environment variable is required');
+  process.exit(1);
+}
 
 const server = new Server(
   {
@@ -27,58 +33,63 @@ const server = new Server(
   }
 );
 
+// Helper function to make authenticated API calls
+async function apiCall(endpoint: string, options: any = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY}`,
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: 'search_exemplar',
-        description: 'Find GitHub repositories that match a description with visual previews and quality metrics',
+        name: 'search_templates',
+        description: 'Search your saved templates by name or description',
         inputSchema: {
           type: 'object',
           properties: {
-            description: {
+            query: {
               type: 'string',
-              description: 'Description of what you want to build (e.g., "React portfolio website")',
+              description: 'Search query to find templates (e.g., "React", "portfolio", "API")',
             },
-            filters: {
-              type: 'object',
-              properties: {
-                language: { type: 'string', description: 'Programming language filter' },
-                min_stars: { type: 'number', description: 'Minimum number of stars' },
-                max_age_days: { type: 'number', description: 'Maximum age in days' },
-              },
-              description: 'Optional filters for the search',
+            limit: {
+              type: 'number',
+              description: 'Maximum number of results to return (default: 10)',
+              default: 10,
             },
           },
-          required: ['description'],
+          required: ['query'],
         },
       },
       {
-        name: 'template_converter',
-        description: 'Convert a GitHub repository into a personalized template with setup instructions',
+        name: 'get_user_info',
+        description: 'Get information about the current user account',
         inputSchema: {
           type: 'object',
-          properties: {
-            repo_url: {
-              type: 'string',
-              description: 'GitHub repository URL to convert into a template',
-            },
-            template_description: {
-              type: 'string',
-              description: 'Description of how you want to customize the template',
-            },
-            user_context: {
-              type: 'object',
-              properties: {
-                project_name: { type: 'string' },
-                preferred_style: { type: 'string' },
-                additional_features: { type: 'array', items: { type: 'string' } },
-              },
-              description: 'Optional user context for personalization',
-            },
-          },
-          required: ['repo_url', 'template_description'],
+          properties: {},
+        },
+      },
+      {
+        name: 'get_dashboard_stats',
+        description: 'Get user dashboard statistics (templates, repositories, etc.)',
+        inputSchema: {
+          type: 'object',
+          properties: {},
         },
       },
     ],
@@ -90,51 +101,111 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    // Validate API key
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new McpError(ErrorCode.InvalidRequest, 'API key not configured');
-    }
-
-    const isValid = await validateApiKey(apiKey);
-    if (!isValid) {
-      throw new McpError(ErrorCode.InvalidRequest, 'Invalid API key');
-    }
-
     switch (name) {
-      case 'search_exemplar': {
-        const { description, filters } = args as {
-          description: string;
-          filters?: Record<string, any>;
+      case 'search_templates': {
+        const { query, limit = 10 } = args as {
+          query: string;
+          limit?: number;
         };
         
-        const result = await searchExemplar(description, filters);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
+        try {
+          const templates = await apiCall(`/api/search/templates?q=${encodeURIComponent(query)}&limit=${limit}`) as any[];
+          
+          if (!templates || templates.length === 0) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `No templates found for query: "${query}"\n\nTry searching for different keywords or create your first template in the Templation web app.`,
+                },
+              ],
+            };
+          }
+
+          const formattedResults = templates.map((template: any, index: number) => 
+            `${index + 1}. **${template.name}**\n` +
+            `   Description: ${template.description || 'No description'}\n` +
+            `   Source: ${template.source_repo_name || 'Unknown'}\n` +
+            `   Tags: ${template.tags?.join(', ') || 'None'}\n` +
+            `   Usage: ${template.usage_count || 0} times\n` +
+            `   Created: ${template.created_at ? new Date(template.created_at).toLocaleDateString() : 'Unknown'}\n`
+          ).join('\n');
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Found ${templates.length} template(s) for "${query}":\n\n${formattedResults}`,
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error searching templates: ${error instanceof Error ? error.message : 'Unknown error'}\n\nMake sure you're authenticated and have created some templates in the Templation web app.`,
+              },
+            ],
+          };
+        }
       }
 
-      case 'template_converter': {
-        const { repo_url, template_description, user_context } = args as {
-          repo_url: string;
-          template_description: string;
-          user_context?: Record<string, any>;
-        };
-        
-        const result = await templateConverter(repo_url, template_description, user_context);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
+      case 'get_user_info': {
+        try {
+          const userInfo = await apiCall('/api/users/me') as any;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `**User Information:**\n\n` +
+                     `Name: ${userInfo.name || 'Not provided'}\n` +
+                     `Email: ${userInfo.email || 'Not provided'}\n` +
+                     `GitHub: ${userInfo.github_username ? `@${userInfo.github_username}` : 'Not connected'}\n` +
+                     `Account created: ${userInfo.created_at ? new Date(userInfo.created_at).toLocaleDateString() : 'Unknown'}\n`,
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error getting user info: ${error instanceof Error ? error.message : 'Unknown error'}\n\nMake sure your API key is valid and you're authenticated.`,
+              },
+            ],
+          };
+        }
+      }
+
+      case 'get_dashboard_stats': {
+        try {
+          const stats = await apiCall('/api/users/dashboard/stats') as any;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `**Dashboard Statistics:**\n\n` +
+                     `📁 Total Templates: ${stats.total_templates || 0}\n` +
+                     `🔍 Repositories Analyzed: ${stats.repositories_analyzed || 0}\n` +
+                     `⭐ Favorite Templates: ${stats.favorites || 0}\n` +
+                     `📈 Recent Activity: ${stats.recent_activity || 0} templates this week\n` +
+                     `🔑 Active API Keys: ${stats.active_api_keys || 0}\n`,
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error getting dashboard stats: ${error instanceof Error ? error.message : 'Unknown error'}\n\nMake sure your API key is valid and you're authenticated.`,
+              },
+            ],
+          };
+        }
       }
 
       default:
@@ -144,17 +215,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (error instanceof McpError) {
       throw error;
     }
-    throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error}`);
+    throw new McpError(ErrorCode.InternalError, `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 });
 
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Templation MCP server running on stdio');
+  console.error('🚀 Templation MCP server running on stdio');
+  console.error(`🔗 Connected to API: ${API_BASE_URL}`);
+  console.error(`🔑 Using API key: ${API_KEY?.substring(0, 12)}...`);
 }
 
 main().catch((error) => {
-  console.error('Server failed to start:', error);
+  console.error('❌ Server failed to start:', error);
   process.exit(1);
 }); 
