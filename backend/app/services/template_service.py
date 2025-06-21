@@ -1,5 +1,7 @@
 import uuid
-from typing import List, Optional
+import json
+import asyncio
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 import os
 
@@ -11,8 +13,12 @@ from app.db.redis_client import set_json, get_json, delete_key, add_to_list, get
 from app.services.github_service import get_repo_details, get_repo_structure
 
 async def create_template(template_data: TemplateCreate, user_id: str) -> Template:
-    """Create a new template"""
+    """Create a new template with enhanced validation"""
     template_id = str(uuid.uuid4())
+    
+    # Validate required fields
+    if not template_data.name or not template_data.source_repo_url:
+        raise ValueError("Template name and source repository URL are required")
     
     template = Template(
         id=template_id,
@@ -20,9 +26,9 @@ async def create_template(template_data: TemplateCreate, user_id: str) -> Templa
         name=template_data.name,
         description=template_data.description,
         source_repo_url=template_data.source_repo_url,
-        template_data=template_data.template_data,
+        template_data=template_data.template_data or {},
         screenshot_url=template_data.screenshot_url,
-        tech_stack=template_data.tech_stack,
+        tech_stack=template_data.tech_stack or [],
         created_at=datetime.utcnow()
     )
     
@@ -32,63 +38,88 @@ async def create_template(template_data: TemplateCreate, user_id: str) -> Templa
     # Add to user's template list
     await add_to_list(f"user:{user_id}:templates", template_id)
     
+    # Update user statistics
+    await increment_user_stat(user_id, "total_templates")
+    
     return template
 
-async def get_user_templates(user_id: str) -> List[Template]:
-    """Get all templates for a user"""
-    template_ids = await get_list(f"user:{user_id}:templates")
-    templates = []
-    
-    for template_id in template_ids:
+async def get_template(template_id: str) -> Optional[Template]:
+    """Get a template by ID with error handling"""
+    try:
         template_data = await get_json(f"template:{template_id}")
         if template_data:
-            templates.append(Template(**template_data))
-    
-    return templates
+            return Template(**template_data)
+        return None
+    except Exception as e:
+        print(f"Error getting template {template_id}: {e}")
+        return None
 
-async def get_template_by_id(template_id: str, user_id: str) -> Optional[Template]:
-    """Get a specific template by ID"""
-    template_data = await get_json(f"template:{template_id}")
-    if not template_data:
-        return None
-    
-    template = Template(**template_data)
-    
-    # Check if user owns this template
-    if template.user_id != user_id:
-        return None
-    
-    return template
+async def get_user_templates(user_id: str, limit: Optional[int] = None) -> List[Template]:
+    """Get all templates for a user with optional limit"""
+    try:
+        template_ids = await get_list(f"user:{user_id}:templates")
+        if not template_ids:
+            return []
+        
+        # Apply limit if specified
+        if limit:
+            template_ids = template_ids[:limit]
+        
+        templates = []
+        for template_id in template_ids:
+            template = await get_template(template_id)
+            if template:
+                templates.append(template)
+        
+        # Sort by created_at descending
+        templates.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
+        return templates
+    except Exception as e:
+        print(f"Error getting user templates for {user_id}: {e}")
+        return []
 
-async def update_template(template_id: str, update_data: TemplateUpdate, user_id: str) -> Optional[Template]:
-    """Update a template"""
-    template = await get_template_by_id(template_id, user_id)
-    if not template:
+async def update_template(template_id: str, update_data: TemplateUpdate) -> Optional[Template]:
+    """Update a template with validation"""
+    try:
+        template = await get_template(template_id)
+        if not template:
+            return None
+        
+        # Update fields
+        if update_data.name is not None:
+            template.name = update_data.name
+        if update_data.description is not None:
+            template.description = update_data.description
+        if update_data.tech_stack is not None:
+            template.tech_stack = update_data.tech_stack
+        if update_data.is_favorite is not None:
+            template.is_favorite = update_data.is_favorite
+        
+        template.updated_at = datetime.utcnow()
+        
+        # Save updated template
+        await set_json(f"template:{template_id}", template.dict())
+        return template
+    except Exception as e:
+        print(f"Error updating template {template_id}: {e}")
         return None
-    
-    # Update fields
-    update_dict = update_data.dict(exclude_unset=True)
-    for field, value in update_dict.items():
-        setattr(template, field, value)
-    
-    # Store updated template
-    await set_json(f"template:{template_id}", template.dict())
-    
-    return template
 
 async def delete_template(template_id: str, user_id: str) -> bool:
-    """Delete a template"""
-    template = await get_template_by_id(template_id, user_id)
-    if not template:
+    """Delete a template and clean up references"""
+    try:
+        # Remove from storage
+        await delete_key(f"template:{template_id}")
+        
+        # Remove from user's template list
+        template_ids = await get_list(f"user:{user_id}:templates")
+        if template_id in template_ids:
+            template_ids.remove(template_id)
+            await set_json(f"user:{user_id}:templates", template_ids)
+        
+        return True
+    except Exception as e:
+        print(f"Error deleting template {template_id}: {e}")
         return False
-    
-    # Delete template data
-    await delete_key(f"template:{template_id}")
-    
-    # Remove from user's template list (this is simplified - in production you'd want to handle list removal properly)
-    # For now, we'll leave it in the list as it won't cause issues when the template doesn't exist
-    
-    return True
 
 async def convert_repo_to_template(
     repo_url: str,
@@ -96,36 +127,61 @@ async def convert_repo_to_template(
     user_context: Optional[UserContext],
     user_id: str
 ) -> ConversionResult:
-    """Convert a GitHub repository into a personalized template"""
+    """Convert a GitHub repository into a personalized template with enhanced AI analysis"""
     try:
-        # Get repository details
-        repo_details = await get_repo_details(repo_url)
-        repo_structure = await get_repo_structure(repo_url)
+        # Validate inputs
+        if not repo_url or not repo_url.startswith("https://github.com/"):
+            raise ValueError("Invalid GitHub repository URL")
         
-        # Prepare context for AI analysis
+        if not template_description.strip():
+            raise ValueError("Template description is required")
+        
+        # Get repository details with retries
+        repo_details = await get_repo_details_with_retry(repo_url)
+        repo_structure = await get_repo_structure_with_retry(repo_url)
+        
+        # Prepare enhanced context for AI analysis
         context = {
             "repo_name": repo_details.get("name"),
             "description": repo_details.get("description"),
             "language": repo_details.get("language"),
             "topics": repo_details.get("topics", []),
-            "structure": [item.get("name") for item in repo_structure if isinstance(repo_structure, list)],
+            "stars": repo_details.get("stargazers_count", 0),
+            "forks": repo_details.get("forks_count", 0),
+            "size": repo_details.get("size", 0),
+            "default_branch": repo_details.get("default_branch", "main"),
+            "license": repo_details.get("license", {}).get("name") if repo_details.get("license") else None,
+            "structure": [
+                {
+                    "name": item.get("name"),
+                    "type": item.get("type"),
+                    "size": item.get("size", 0)
+                }
+                for item in (repo_structure if isinstance(repo_structure, list) else [])
+            ][:50],  # Limit to first 50 items for performance
             "user_description": template_description,
             "user_context": user_context.dict() if user_context else {}
         }
         
-        # Use AI to analyze and generate conversion steps
-        conversion_result = await analyze_repo_with_ai(context)
+        # Use enhanced AI analysis
+        conversion_result = await analyze_repo_with_enhanced_ai(context)
+        
+        # Generate template name
+        template_name = generate_template_name(repo_details, template_description, user_context)
         
         # Create and store template
         template_data = TemplateCreate(
-            name=f"{repo_details.get('name', 'Template')} - {template_description}",
+            name=template_name,
             description=f"Converted from {repo_url}: {template_description}",
             source_repo_url=repo_url,
             template_data=conversion_result,
-            tech_stack=[repo_details.get("language")] + repo_details.get("topics", [])[:4]
+            tech_stack=extract_tech_stack(repo_details, repo_structure)
         )
         
         template = await create_template(template_data, user_id)
+        
+        # Track usage statistics
+        await increment_user_stat(user_id, "repositories_analyzed")
         
         return ConversionResult(
             conversion_steps=conversion_result.get("conversion_steps", []),
@@ -139,166 +195,360 @@ async def convert_repo_to_template(
     except Exception as e:
         raise Exception(f"Template conversion failed: {str(e)}")
 
-async def analyze_repo_with_ai(context: dict) -> dict:
-    """Use AI to analyze repository and generate conversion instructions"""
+async def get_repo_details_with_retry(repo_url: str, max_retries: int = 3) -> Dict[str, Any]:
+    """Get repository details with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return await get_repo_details(repo_url)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise e
+            await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
+    return {}
+
+async def get_repo_structure_with_retry(repo_url: str, max_retries: int = 3) -> List[Dict[str, Any]]:
+    """Get repository structure with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            return await get_repo_structure(repo_url)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                # Return empty structure if we can't get it
+                return []
+            await asyncio.sleep(1 * (attempt + 1))
+    return []
+
+def generate_template_name(repo_details: Dict[str, Any], description: str, user_context: Optional[UserContext]) -> str:
+    """Generate a descriptive template name"""
+    base_name = repo_details.get("name", "Template")
+    
+    # Use project name if provided in user context
+    if user_context and user_context.project_name:
+        return f"{user_context.project_name} (from {base_name})"
+    
+    # Extract key words from description
+    key_words = extract_key_words(description)
+    if key_words:
+        return f"{base_name} - {' '.join(key_words[:3])}"
+    
+    return f"{base_name} Template"
+
+def extract_key_words(text: str) -> List[str]:
+    """Extract key words from description for naming"""
+    # Simple keyword extraction
+    stop_words = {"a", "an", "the", "for", "with", "using", "to", "from", "of", "in", "on", "at", "by"}
+    words = text.lower().split()
+    key_words = [word.strip(".,!?") for word in words if word not in stop_words and len(word) > 2]
+    return key_words[:5]  # Return first 5 key words
+
+def extract_tech_stack(repo_details: Dict[str, Any], repo_structure: List[Dict[str, Any]]) -> List[str]:
+    """Extract technology stack from repository details and structure"""
+    tech_stack = []
+    
+    # Add primary language
+    if repo_details.get("language"):
+        tech_stack.append(repo_details["language"])
+    
+    # Add topics (GitHub tags)
+    if repo_details.get("topics"):
+        tech_stack.extend(repo_details["topics"][:5])  # Limit to 5 topics
+    
+    # Detect technologies from file structure
+    file_names = [item.get("name", "") for item in repo_structure if item.get("type") == "file"]
+    
+    # Common file patterns and their associated technologies
+    tech_patterns = {
+        "package.json": "Node.js",
+        "requirements.txt": "Python",
+        "Gemfile": "Ruby",
+        "go.mod": "Go",
+        "Cargo.toml": "Rust",
+        "composer.json": "PHP",
+        "pom.xml": "Java",
+        "build.gradle": "Java",
+        "Dockerfile": "Docker",
+        "docker-compose.yml": "Docker Compose",
+        "next.config.js": "Next.js",
+        "nuxt.config.js": "Nuxt.js",
+        "vue.config.js": "Vue.js",
+        "angular.json": "Angular",
+        "svelte.config.js": "Svelte",
+        "tailwind.config.js": "Tailwind CSS",
+        "webpack.config.js": "Webpack",
+        "vite.config.js": "Vite",
+        "tsconfig.json": "TypeScript",
+        ".env.example": "Environment Config"
+    }
+    
+    for file_name in file_names:
+        if file_name in tech_patterns:
+            tech = tech_patterns[file_name]
+            if tech not in tech_stack:
+                tech_stack.append(tech)
+    
+    # Remove duplicates and limit
+    return list(dict.fromkeys(tech_stack))[:10]
+
+async def analyze_repo_with_enhanced_ai(context: Dict[str, Any]) -> Dict[str, Any]:
+    """Enhanced AI analysis with multiple fallback strategies"""
     try:
-        # Try to use OpenAI API if available (check multiple possible env var names)
+        # Try OpenAI first (most comprehensive)
         openai_api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_API_KEY")
-        
         if openai_api_key:
-            return await analyze_with_openai(context, openai_api_key)
-        else:
-            # Fall back to rule-based analysis
-            return await analyze_with_rules(context)
+            return await analyze_with_openai_enhanced(context, openai_api_key)
+        
+        # Try Anthropic Claude as fallback
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+        if anthropic_api_key:
+            return await analyze_with_anthropic(context, anthropic_api_key)
+        
+        # Fall back to enhanced rule-based analysis
+        return await analyze_with_enhanced_rules(context)
     
     except Exception as e:
-        # Fallback to basic conversion instructions
-        return await analyze_with_rules(context)
+        print(f"AI analysis failed: {e}")
+        # Always fall back to rule-based analysis
+        return await analyze_with_enhanced_rules(context)
 
-async def analyze_with_openai(context: dict, api_key: str) -> dict:
-    """Use OpenAI to analyze repository and generate detailed conversion instructions"""
+async def analyze_with_openai_enhanced(context: Dict[str, Any], api_key: str) -> Dict[str, Any]:
+    """Enhanced OpenAI analysis with better prompting and error handling"""
     import httpx
     
-    # Construct detailed prompt for OpenAI
+    # Construct detailed, structured prompt
     prompt = f"""
-    Analyze this GitHub repository and provide detailed, actionable instructions for converting it into a personalized template.
+You are an expert software developer and template creator. Analyze this GitHub repository and provide detailed, actionable instructions for converting it into a personalized template.
 
-    Repository Information:
-    - Name: {context.get('repo_name')}
-    - Description: {context.get('description')}
-    - Language: {context.get('language')}
-    - Topics: {', '.join(context.get('topics', []))}
-    - File Structure: {', '.join(context.get('structure', [])[:15])}
+Repository Analysis:
+- Name: {context.get('repo_name')}
+- Description: {context.get('description')}
+- Primary Language: {context.get('language')}
+- Topics/Tags: {', '.join(context.get('topics', []))}
+- Stars: {context.get('stars', 0)} | Forks: {context.get('forks', 0)}
+- Repository Size: {context.get('size', 0)} KB
+- License: {context.get('license', 'Not specified')}
 
-    User Requirements:
-    - Template Description: {context.get('user_description')}
-    - User Context: {context.get('user_context')}
+File Structure (first 50 items):
+{json.dumps(context.get('structure', []), indent=2)[:1000]}...
 
-    Please provide a detailed JSON response with these exact keys:
-    {{
-        "conversion_steps": ["Step 1", "Step 2", ...],
-        "files_to_modify": ["file1.js", "file2.json", ...],
-        "customization_points": ["point 1", "point 2", ...],
-        "setup_commands": ["npm install", "npm start", ...],
-        "expected_outcome": "Description of final result"
-    }}
+User Requirements:
+- Template Purpose: {context.get('user_description')}
+- User Context: {json.dumps(context.get('user_context', {}), indent=2)}
 
-    Make the instructions specific to this repository type and the user's goals. Include actual file names and realistic customization steps.
+Please provide a comprehensive JSON response with these exact keys:
+{{
+    "conversion_steps": [
+        "Step-by-step instructions for converting this repository into the desired template",
+        "Include specific file modifications, configuration changes, and customization steps",
+        "Make steps actionable and technology-specific"
+    ],
+    "files_to_modify": [
+        "List of specific files that need to be modified for customization",
+        "Include configuration files, source files, and documentation"
+    ],
+    "customization_points": [
+        "Key areas where users can customize the template",
+        "Include styling, functionality, and configuration options"
+    ],
+    "setup_commands": [
+        "Exact commands to set up and run the template",
+        "Include installation, build, and development commands"
+    ],
+    "expected_outcome": "Detailed description of what the final customized template will achieve and how it will work"
+}}
+
+Focus on:
+1. Technology-specific best practices
+2. Security considerations
+3. Performance optimizations
+4. User experience improvements
+5. Deployment readiness
+
+Make all instructions specific to this repository type and the user's stated goals.
     """
-
+    
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
                 json={
-                    "model": "gpt-4o-mini",  # Cost-effective model
+                    "model": "gpt-4",  # Use GPT-4 for better analysis
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are an expert software engineer who specializes in analyzing codebases and creating detailed template conversion instructions. Respond only with valid JSON."
+                            "content": "You are an expert software developer and template creator. Provide detailed, actionable instructions in valid JSON format."
                         },
                         {
                             "role": "user",
                             "content": prompt
                         }
                     ],
-                    "temperature": 0.3,
-                    "max_tokens": 1000
-                },
-                timeout=30.0
+                    "max_tokens": 2000,
+                    "temperature": 0.3,  # Lower temperature for more consistent results
+                }
             )
             
             if response.status_code == 200:
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
                 
-                # Try to parse JSON response
-                import json
+                # Try to parse JSON from the response
                 try:
-                    ai_analysis = json.loads(content)
-                    # Validate required keys
-                    required_keys = ["conversion_steps", "files_to_modify", "customization_points", "setup_commands", "expected_outcome"]
-                    if all(key in ai_analysis for key in required_keys):
-                        return ai_analysis
+                    # Extract JSON from markdown code blocks if present
+                    if "```json" in content:
+                        start = content.find("```json") + 7
+                        end = content.find("```", start)
+                        content = content[start:end].strip()
+                    elif "```" in content:
+                        start = content.find("```") + 3
+                        end = content.find("```", start)
+                        content = content[start:end].strip()
+                    
+                    return json.loads(content)
                 except json.JSONDecodeError:
-                    pass
-            
-            # If AI response is invalid, fall back to rules
-            return await analyze_with_rules(context)
-            
+                    # If JSON parsing fails, fall back to rule-based analysis
+                    print("Failed to parse OpenAI JSON response, falling back to rules")
+                    return await analyze_with_enhanced_rules(context)
+            else:
+                print(f"OpenAI API error: {response.status_code}")
+                return await analyze_with_enhanced_rules(context)
+                
     except Exception as e:
-        print(f"OpenAI API error: {e}")
-        return await analyze_with_rules(context)
+        print(f"OpenAI analysis failed: {e}")
+        return await analyze_with_enhanced_rules(context)
 
-async def analyze_with_rules(context: dict) -> dict:
-    """Rule-based analysis as fallback when AI is not available"""
-    # Simplified conversion logic based on common patterns
-    conversion_steps = [
-        "1. Clone the repository to your local machine",
-        "2. Install dependencies using the package manager",
-        "3. Update configuration files with your project details",
-        "4. Customize styling and branding",
-        "5. Test the application locally",
-        "6. Deploy to your preferred hosting platform"
-    ]
-    
-    files_to_modify = []
-    setup_commands = []
-    
-    # Detect common files and provide specific instructions
-    structure = context.get('structure', [])
-    
-    if 'package.json' in structure:
-        files_to_modify.extend(['package.json', 'README.md'])
-        setup_commands.extend(['npm install', 'npm start'])
-        if 'next.config.js' in structure or 'next.config.ts' in structure:
-            files_to_modify.append('next.config.js')
-            conversion_steps.insert(3, "3. Update Next.js configuration and environment variables")
-        if 'tailwind.config.js' in structure:
-            files_to_modify.append('tailwind.config.js')
-            conversion_steps.insert(4, "4. Customize Tailwind CSS theme and colors")
-    elif 'requirements.txt' in structure:
-        files_to_modify.extend(['requirements.txt', 'README.md'])
-        setup_commands.extend(['pip install -r requirements.txt', 'python app.py'])
-        if 'app.py' in structure or 'main.py' in structure:
-            files_to_modify.extend(['app.py', '.env.example'])
-    elif 'Gemfile' in structure:
-        files_to_modify.extend(['Gemfile', 'README.md'])
-        setup_commands.extend(['bundle install', 'rails server'])
-    elif 'go.mod' in structure:
-        files_to_modify.extend(['go.mod', 'README.md'])
-        setup_commands.extend(['go mod tidy', 'go run main.go'])
-    
-    # Add common customization points
-    customization_points = [
-        "Update project name and description",
-        "Modify color scheme and styling",
-        "Replace placeholder content with your own",
-        "Configure environment variables",
-        "Update API endpoints and configurations"
-    ]
-    
-    # Add language-specific customization points
+async def analyze_with_anthropic(context: Dict[str, Any], api_key: str) -> Dict[str, Any]:
+    """Anthropic Claude analysis as a fallback"""
+    # This would implement Claude API integration
+    # For now, fall back to enhanced rules
+    return await analyze_with_enhanced_rules(context)
+
+async def analyze_with_enhanced_rules(context: Dict[str, Any]) -> Dict[str, Any]:
+    """Enhanced rule-based analysis with technology-specific logic"""
     language = context.get('language', '').lower()
-    if language == 'javascript' or language == 'typescript':
-        customization_points.append("Update React/Vue components and routing")
-        customization_points.append("Modify API endpoints and data fetching")
-    elif language == 'python':
-        customization_points.append("Configure Flask/Django/FastAPI settings")
-        customization_points.append("Update database models and migrations")
-    elif language == 'ruby':
-        customization_points.append("Update Rails configuration and routes")
-    elif language == 'go':
-        customization_points.append("Modify Go modules and package structure")
+    structure = context.get('structure', [])
+    file_names = [item.get('name', '') for item in structure if item.get('type') == 'file']
+    user_description = context.get('user_description', '')
+    user_context = context.get('user_context', {})
     
-    # Enhanced expected outcome based on user description
-    user_desc = context.get('user_description', '')
-    repo_name = context.get('repo_name', 'repository')
-    expected_outcome = f"A fully functional {user_desc} based on the {repo_name} repository, customized for your specific needs and ready for development."
+    # Initialize base conversion steps
+    conversion_steps = [
+        "Clone the repository to your local development environment",
+        "Review the existing codebase and documentation",
+        "Install dependencies using the appropriate package manager",
+        "Configure environment variables and settings",
+        "Customize branding, styling, and content",
+        "Test the application locally",
+        "Update documentation with your customizations",
+        "Prepare for deployment to your chosen platform"
+    ]
+    
+    files_to_modify = ["README.md"]
+    setup_commands = []
+    customization_points = []
+    
+    # Technology-specific analysis
+    if 'package.json' in file_names:
+        # Node.js/JavaScript project
+        setup_commands.extend([
+            "npm install",
+            "npm run dev"
+        ])
+        files_to_modify.extend(['package.json', '.env.example'])
+        customization_points.extend([
+            "Update package.json with your project details",
+            "Configure environment variables in .env file",
+            "Customize application name and metadata"
+        ])
+        
+        # Framework-specific customizations
+        if any(f in file_names for f in ['next.config.js', 'next.config.ts']):
+            files_to_modify.append('next.config.js')
+            customization_points.extend([
+                "Configure Next.js settings and optimizations",
+                "Set up custom domains and redirects",
+                "Configure image optimization and static exports"
+            ])
+            conversion_steps.insert(4, "Configure Next.js specific settings and optimizations")
+        
+        if 'tailwind.config.js' in file_names:
+            files_to_modify.append('tailwind.config.js')
+            customization_points.extend([
+                "Customize Tailwind CSS theme colors and fonts",
+                "Configure responsive breakpoints",
+                "Add custom utility classes"
+            ])
+        
+        if any(f in file_names for f in ['vite.config.js', 'vite.config.ts']):
+            setup_commands[1] = "npm run dev"
+            customization_points.append("Configure Vite build settings and plugins")
+    
+    elif 'requirements.txt' in file_names or language == 'python':
+        # Python project
+        setup_commands.extend([
+            "python -m venv venv",
+            "source venv/bin/activate  # On Windows: venv\\Scripts\\activate",
+            "pip install -r requirements.txt",
+            "python app.py"
+        ])
+        files_to_modify.extend(['requirements.txt', '.env.example'])
+        customization_points.extend([
+            "Update Python dependencies as needed",
+            "Configure database connections and API keys",
+            "Customize application settings and configurations"
+        ])
+        
+        if any(f in file_names for f in ['app.py', 'main.py']):
+            files_to_modify.extend(['app.py', 'main.py'])
+            customization_points.append("Modify main application logic and routes")
+        
+        if 'Dockerfile' in file_names:
+            setup_commands.append("docker build -t your-app-name .")
+            customization_points.append("Configure Docker settings for deployment")
+    
+    elif 'Gemfile' in file_names or language == 'ruby':
+        # Ruby project
+        setup_commands.extend([
+            "bundle install",
+            "rails server"
+        ])
+        files_to_modify.extend(['Gemfile', 'config/application.rb'])
+        customization_points.extend([
+            "Update Ruby gems and versions",
+            "Configure Rails application settings",
+            "Customize database configuration"
+        ])
+    
+    elif 'go.mod' in file_names or language == 'go':
+        # Go project
+        setup_commands.extend([
+            "go mod tidy",
+            "go run main.go"
+        ])
+        files_to_modify.extend(['go.mod', 'main.go'])
+        customization_points.extend([
+            "Update Go module dependencies",
+            "Configure application settings and environment",
+            "Customize API endpoints and handlers"
+        ])
+    
+    # Add user-specific customizations
+    if user_context.get('project_name'):
+        customization_points.insert(0, f"Update all references to use your project name: {user_context['project_name']}")
+    
+    if user_context.get('preferred_style'):
+        customization_points.append(f"Apply {user_context['preferred_style']} styling throughout the application")
+    
+    if user_context.get('deployment_preference'):
+        deployment = user_context['deployment_preference']
+        conversion_steps.append(f"Configure deployment settings for {deployment}")
+        customization_points.append(f"Set up {deployment} deployment configuration")
+    
+    # Generate expected outcome based on user description and context
+    expected_outcome = generate_expected_outcome(user_description, user_context, context)
     
     return {
         "conversion_steps": conversion_steps,
@@ -306,4 +556,92 @@ async def analyze_with_rules(context: dict) -> dict:
         "customization_points": customization_points,
         "setup_commands": setup_commands,
         "expected_outcome": expected_outcome
-    } 
+    }
+
+def generate_expected_outcome(user_description: str, user_context: Dict[str, Any], repo_context: Dict[str, Any]) -> str:
+    """Generate a detailed expected outcome description"""
+    project_name = user_context.get('project_name', 'your project')
+    repo_name = repo_context.get('repo_name', 'the repository')
+    language = repo_context.get('language', 'the technology stack')
+    
+    outcome = f"After following the conversion steps, you will have a fully customized {user_description.lower()} "
+    outcome += f"based on the {repo_name} repository. "
+    
+    if project_name != 'your project':
+        outcome += f"The application will be branded as '{project_name}' and "
+    
+    outcome += f"built using {language} with all dependencies properly configured. "
+    
+    if user_context.get('target_audience'):
+        outcome += f"It will be optimized for {user_context['target_audience']} with "
+    
+    if user_context.get('preferred_style'):
+        outcome += f"a {user_context['preferred_style']} design aesthetic. "
+    
+    outcome += "The template will include comprehensive setup instructions, "
+    outcome += "customization guidelines, and deployment-ready configuration. "
+    
+    if user_context.get('deployment_preference'):
+        outcome += f"It will be ready for deployment on {user_context['deployment_preference']} "
+        outcome += "with minimal additional configuration required."
+    else:
+        outcome += "You'll be able to deploy it to your preferred hosting platform."
+    
+    return outcome
+
+async def increment_user_stat(user_id: str, stat_name: str, increment: int = 1):
+    """Increment a user statistic"""
+    try:
+        stats_key = f"user:{user_id}:stats"
+        stats = await get_json(stats_key) or {}
+        stats[stat_name] = stats.get(stat_name, 0) + increment
+        await set_json(stats_key, stats)
+    except Exception as e:
+        print(f"Error incrementing user stat {stat_name} for {user_id}: {e}")
+
+async def get_user_stats(user_id: str) -> Dict[str, Any]:
+    """Get user statistics"""
+    try:
+        stats_key = f"user:{user_id}:stats"
+        stats = await get_json(stats_key) or {}
+        
+        # Get template count
+        templates = await get_user_templates(user_id)
+        stats['total_templates'] = len(templates)
+        stats['favorites'] = len([t for t in templates if t.is_favorite])
+        
+        # Calculate recent activity (templates created this week)
+        from datetime import timedelta
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_templates = [t for t in templates if t.created_at and t.created_at > week_ago]
+        stats['recent_activity'] = len(recent_templates)
+        
+        # Get most used technologies
+        all_tech = []
+        for template in templates:
+            if template.tech_stack:
+                all_tech.extend(template.tech_stack)
+        
+        # Count technology usage
+        tech_counts = {}
+        for tech in all_tech:
+            tech_counts[tech] = tech_counts.get(tech, 0) + 1
+        
+        # Get top 5 technologies
+        stats['most_used_technologies'] = [
+            tech for tech, _ in sorted(tech_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        ]
+        
+        # Add recent templates info
+        stats['recent_templates'] = [
+            {
+                'name': t.name,
+                'created_at': t.created_at.isoformat() if t.created_at else None
+            }
+            for t in recent_templates[:5]
+        ]
+        
+        return stats
+    except Exception as e:
+        print(f"Error getting user stats for {user_id}: {e}")
+        return {} 

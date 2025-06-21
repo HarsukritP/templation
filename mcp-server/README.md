@@ -1,224 +1,293 @@
-# @templation/mcp-server
+# Templation MCP Server v2.0.0
 
-Transform GitHub repositories into personalized templates directly in Cursor with AI-powered code discovery.
+> 🚀 **Enhanced MCP server for advanced GitHub repository search, AI-powered template conversion, and comprehensive template management directly in Cursor**
 
-## 🚀 Features
+Transform any GitHub repository into a personalized, step-by-step template with AI-powered analysis and detailed customization guidance.
 
-- **🔍 Search GitHub Repositories**: Find repos with visual previews and quality metrics
-- **🎯 Convert to Templates**: Transform any GitHub repo into a personalized template
-- **📚 Template Library**: Search and manage your saved templates
-- **👤 User Dashboard**: Get account info and usage statistics
-- **🔑 API Key Authentication**: Secure access to your Templation account
+## ✨ What's New in v2.0.0
 
-## 📦 Installation
+### 🧠 Enhanced AI Analysis
+- **Multi-AI Provider Support**: OpenAI GPT-4, Anthropic Claude, with intelligent fallbacks
+- **Comprehensive Repository Analysis**: Deep code structure analysis, technology detection, and quality scoring
+- **Smart Template Naming**: Automatic generation of descriptive template names
+- **Enhanced Customization**: Better understanding of user context and preferences
 
-1. **Install the MCP server**:
-   ```bash
-   npm install -g @templation/mcp-server
-   ```
+### 🔍 Advanced Search & Discovery
+- **Intelligent Repository Ranking**: Quality scores, relevance matching, and popularity metrics
+- **Enhanced Filtering**: Technology stack detection, difficulty assessment, and freshness indicators
+- **Better Result Formatting**: Rich metadata, demo links, and visual previews
+- **Caching & Performance**: Smart caching for faster responses and reduced API calls
 
-2. **Get your API key** from [templation.up.railway.app/account](https://templation.up.railway.app/account)
+### 📊 Comprehensive Template Management
+- **Usage Tracking**: Monitor template usage and popularity
+- **Favorites System**: Mark and organize your most-used templates
+- **Enhanced Metadata**: Tech stack analysis, creation dates, and update tracking
+- **Statistics Dashboard**: Detailed analytics on your template library
 
-3. **Configure in Cursor**: Add to your MCP settings:
-   ```json
-   {
-     "mcpServers": {
-       "templation": {
-         "command": "npx",
-         "args": ["-y", "@templation/mcp-server"],
-         "env": {
-           "TEMPLATION_API_KEY": "your-api-key-here"
-         }
-       }
-     }
-   }
-   ```
+### 🛡️ Robust Error Handling
+- **Retry Logic**: Automatic retries with exponential backoff
+- **Graceful Degradation**: Fallback strategies for service failures
+- **Better Error Messages**: Clear, actionable error descriptions
+- **Rate Limit Management**: Intelligent handling of API rate limits
 
-## 🛠️ Available Functions
+## 🚀 Quick Start
 
-### 1. `search_exemplar` - Find Inspiration
-Search GitHub for repositories that match your project vision.
+### 1. Installation
 
-**Usage**: 
-```
-Search for "React portfolio website with TypeScript"
+```bash
+npm install -g @templation/mcp-server
 ```
 
-**Parameters**:
-- `description` (required): What you want to build
-- `filters` (optional): Refine your search
-  - `language`: Programming language (e.g., "TypeScript", "Python")
-  - `min_stars`: Minimum GitHub stars
-  - `max_age_days`: Maximum age in days
+### 2. Get Your API Key
 
-**Example**:
-```
-Description: "Next.js blog with MDX and dark mode"
-Filters: {"language": "TypeScript", "min_stars": 100}
-```
+Visit [templation.up.railway.app/api-keys](https://templation.up.railway.app/api-keys) to generate your API key.
 
-### 2. `template_converter` - Create Templates
-Convert any GitHub repository into a personalized template with setup instructions.
+### 3. Configure Cursor
 
-**Usage**:
-```
-Convert https://github.com/vercel/nextjs-blog for "Personal portfolio with AI projects"
-```
+Add to your Cursor MCP settings (`~/.cursor-mcp/config.json`):
 
-**Parameters**:
-- `repo_url` (required): GitHub repository URL
-- `template_description` (required): How you want to customize it
-- `user_context` (optional): Personalization options
-  - `project_name`: Your project name
-  - `preferred_style`: Styling approach
-  - `additional_features`: Extra features to include
-
-**Example**:
-```
-Repository: https://github.com/shadcn-ui/ui
-Description: "Component library for my SaaS dashboard"
-Context: {
-  "project_name": "TaskFlow",
-  "preferred_style": "modern",
-  "additional_features": ["dark mode", "mobile responsive"]
+```json
+{
+  "templation": {
+    "command": "mcp-server",
+    "env": {
+      "TEMPLATION_API_KEY": "your-api-key-here"
+    }
+  }
 }
 ```
 
-### 3. `search_templates` - Find Your Templates
-Search through your saved templates by name or description.
+### 4. Optional: AI Enhancement
 
-**Usage**:
-```
-Search templates for "React"
-```
+For enhanced AI analysis, add OpenAI or Anthropic API keys:
 
-**Parameters**:
-- `query` (required): Search term
-- `limit` (optional): Max results (default: 10)
-
-### 4. `get_user_info` - Account Details
-Get information about your Templation account.
-
-**Usage**:
-```
-Get my user information
+```json
+{
+  "templation": {
+    "command": "mcp-server",
+    "env": {
+      "TEMPLATION_API_KEY": "your-api-key-here",
+      "OPENAI_API_KEY": "your-openai-key-here",
+      "ANTHROPIC_API_KEY": "your-anthropic-key-here"
+    }
+  }
+}
 ```
 
-### 5. `get_dashboard_stats` - Usage Statistics
-View your dashboard statistics and activity.
+## 🛠️ Available Functions
 
-**Usage**:
-```
-Show my dashboard stats
+### 🔍 `search_templates`
+Search your saved templates with intelligent ranking and filtering.
+
+```javascript
+search_templates({
+  query: "React portfolio",
+  limit: 10
+})
 ```
 
-## 🔧 Configuration
+**Enhanced Features:**
+- **Smart Scoring**: Name, description, and tech stack relevance scoring
+- **Word Matching**: Multi-word query support with weighted results
+- **Usage Tracking**: See which templates you use most
+- **Favorites First**: Prioritize your starred templates
+
+### 🌟 `search_exemplar`
+Discover high-quality GitHub repositories with advanced filtering and quality assessment.
+
+```javascript
+search_exemplar({
+  description: "React e-commerce with Stripe payments",
+  filters: {
+    language: "TypeScript",
+    min_stars: 100,
+    max_age_days: 365
+  }
+})
+```
+
+**Enhanced Features:**
+- **Quality Scoring**: Comprehensive repository quality assessment
+- **Technology Detection**: Advanced tech stack identification
+- **Difficulty Assessment**: Easy/Medium/Hard customization difficulty
+- **Demo Link Detection**: Automatic demo URL discovery
+- **Visual Previews**: Screenshot and preview generation
+
+### 🎯 `template_converter`
+Convert repositories into personalized templates with AI-powered analysis.
+
+```javascript
+template_converter({
+  repo_url: "https://github.com/vercel/next.js",
+  template_description: "Portfolio website for a data scientist",
+  user_context: {
+    project_name: "DataSci Portfolio",
+    preferred_style: "modern",
+    target_audience: "potential employers",
+    deployment_preference: "Vercel",
+    additional_features: ["dark mode", "analytics", "blog"]
+  }
+})
+```
+
+**Enhanced Features:**
+- **AI-Powered Analysis**: GPT-4 or Claude analysis for comprehensive instructions
+- **Technology-Specific Guidance**: Framework-specific customization steps
+- **Deployment Ready**: Platform-specific deployment instructions
+- **Security & Performance**: Best practices and optimization recommendations
+- **Rich Context Understanding**: User preferences and project goals integration
+
+### 👤 `get_user_info`
+Get detailed account information with statistics.
+
+```javascript
+get_user_info({
+  include_stats: true
+})
+```
+
+**Enhanced Features:**
+- **Comprehensive Stats**: Template count, repository analysis, favorites
+- **GitHub Integration**: Connection status and username
+- **Usage Analytics**: Recent activity and popular technologies
+- **Quick Links**: Direct access to web dashboard
+
+### 📊 `get_dashboard_stats`
+Comprehensive dashboard statistics and analytics.
+
+```javascript
+get_dashboard_stats({
+  include_recent_activity: true
+})
+```
+
+**Enhanced Features:**
+- **Technology Trends**: Most-used technologies and frameworks
+- **Activity Timeline**: Recent template creation and usage
+- **Performance Metrics**: Quality scores and success rates
+- **Growth Tracking**: Template library growth over time
+
+### 📋 `get_template_details`
+Get detailed template information with setup instructions.
+
+```javascript
+get_template_details({
+  template_id: "your-template-id",
+  include_setup_guide: true
+})
+```
+
+**Enhanced Features:**
+- **Complete Setup Guide**: Step-by-step instructions
+- **Customization Points**: Specific areas for personalization
+- **Usage History**: When and how often you've used the template
+- **Tech Stack Analysis**: Technologies and frameworks used
+
+## 🎯 Best Practices
+
+### Search Tips
+- **Be Specific**: "React e-commerce with Stripe" vs "React app"
+- **Include Tech Stack**: "Vue.js dashboard with TypeScript and Tailwind"
+- **Mention Features**: "Blog with dark mode and comments"
+- **Use Filters**: Leverage language, stars, and recency filters
+
+### Template Conversion Tips
+- **Detailed Descriptions**: "Portfolio for data scientist with project showcases"
+- **Provide Context**: Include target audience and use case
+- **Specify Preferences**: Mention styling, deployment, and feature preferences
+- **Use User Context**: Leverage all available context fields for better results
+
+### Organization Tips
+- **Consistent Naming**: Use clear, descriptive template names
+- **Tag Appropriately**: Include relevant technologies and use cases
+- **Mark Favorites**: Star your most-used templates
+- **Regular Cleanup**: Archive or delete unused templates
+
+## 🔧 Advanced Configuration
 
 ### Environment Variables
 
-- `TEMPLATION_API_KEY`: Your API key (required)
-- `TEMPLATION_API_URL`: API base URL (optional, defaults to production)
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TEMPLATION_API_KEY` | Your Templation API key | ✅ Yes |
+| `OPENAI_API_KEY` | OpenAI API key for enhanced AI analysis | ❌ Optional |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude analysis | ❌ Optional |
+| `GITHUB_TOKEN` | GitHub token for higher rate limits | ❌ Optional |
+| `TEMPLATION_API_URL` | Custom API URL (defaults to production) | ❌ Optional |
 
-### Getting Your API Key
+### Performance Tuning
 
-1. Visit [templation.up.railway.app](https://templation.up.railway.app)
-2. Sign up or log in
-3. Go to Account Settings
-4. Generate a new API key
-5. Copy and use in your MCP configuration
+The MCP server includes intelligent caching and performance optimizations:
 
-## 🌟 Usage Examples
-
-### Find and Convert a Repository
-
-1. **Search for inspiration**:
-   ```
-   search_exemplar("Python FastAPI REST API with authentication")
-   ```
-
-2. **Convert to template**:
-   ```
-   template_converter(
-     repo_url: "https://github.com/tiangolo/full-stack-fastapi-postgresql",
-     template_description: "API backend for my SaaS product",
-     user_context: {
-       "project_name": "MyApp API",
-       "additional_features": ["JWT auth", "email notifications"]
-     }
-   )
-   ```
-
-3. **Find your template later**:
-   ```
-   search_templates("FastAPI")
-   ```
-
-### Workflow Integration
-
-**For New Projects**:
-1. Use `search_exemplar` to find similar projects
-2. Use `template_converter` to create your template
-3. Follow the setup instructions provided
-4. Use `search_templates` to find it later
-
-**For Existing Templates**:
-1. Use `search_templates` to find saved templates
-2. View template details and recreation steps
-3. Access template data from your dashboard
+- **Template Search**: 3-minute cache for search results
+- **Repository Data**: 10-minute cache for GitHub repository information
+- **User Statistics**: 5-minute cache for dashboard data
+- **Retry Logic**: Exponential backoff for failed requests
+- **Rate Limit Handling**: Automatic retry with delays
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-**"Invalid API key"**:
-- Check your API key at [templation.up.railway.app/account](https://templation.up.railway.app/account)
-- Ensure it's correctly set in your MCP configuration
-- Make sure there are no extra spaces or characters
+**"Authentication failed"**
+- Check your API key at [templation.up.railway.app/api-keys](https://templation.up.railway.app/api-keys)
+- Ensure the key is correctly set in your MCP configuration
+- Verify there are no extra spaces or characters
 
-**"No repositories found"**:
+**"No repositories found"**
 - Try broader search terms
 - Remove restrictive filters
-- Check if the repository is public and accessible
+- Check if you're searching for existing technologies
+- Verify your internet connection
 
-**"Template conversion failed"**:
-- Verify the GitHub repository URL is correct
-- Ensure the repository is publicly accessible
+**"Template conversion failed"**
+- Ensure the GitHub repository URL is correct and public
+- Check if the repository exists and hasn't been renamed
+- Verify the repository is accessible (not private)
+- Try again if GitHub API limits were exceeded
+
+**"Rate limit exceeded"**
+- Wait a few minutes before trying again
+- Add a GitHub token to increase rate limits
+- Use caching by repeating similar searches
+
+### Performance Issues
+
+**Slow responses**
 - Check your internet connection
+- Verify the Templation API is accessible
+- Try smaller search queries or limits
+- Clear cache by restarting Cursor
 
-### Getting Help
+**Memory usage**
+- The server includes automatic cache cleanup
+- Restart Cursor if memory usage becomes high
+- Consider reducing search result limits
 
-- **Web App**: [templation.up.railway.app](https://templation.up.railway.app)
+## 🌐 Web Dashboard
+
+Access the full Templation web interface for advanced features:
+
 - **Dashboard**: [templation.up.railway.app/dashboard](https://templation.up.railway.app/dashboard)
+- **Templates**: [templation.up.railway.app/templates](https://templation.up.railway.app/templates)
+- **API Keys**: [templation.up.railway.app/api-keys](https://templation.up.railway.app/api-keys)
 - **Account**: [templation.up.railway.app/account](https://templation.up.railway.app/account)
 
-## 🎯 Tips for Best Results
+## 🤝 Contributing
 
-### Search Tips
-- Use descriptive terms: "React e-commerce with Stripe" vs "React app"
-- Include tech stack: "Vue.js dashboard with TypeScript"
-- Mention specific features: "blog with dark mode and comments"
+We welcome contributions! Please see our [Contributing Guide](https://github.com/HarsukritP/templation/blob/main/CONTRIBUTING.md) for details.
 
-### Template Conversion Tips
-- Be specific about customization: "Portfolio for data scientist" vs "Portfolio"
-- Include your use case: "Landing page for AI startup"
-- Mention preferred technologies: "Using Tailwind CSS and Framer Motion"
+## 📄 License
 
-### Organization Tips
-- Use consistent naming for templates
-- Include project context in descriptions
-- Tag templates with relevant technologies
-
-## 📊 Version History
-
-- **v1.1.0**: Added `search_exemplar` and `template_converter` functions
-- **v1.0.1**: Initial release with basic template search and user functions
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- **Web Application**: https://templation.up.railway.app
-- **API Documentation**: https://templation-api.up.railway.app/docs
-- **GitHub Repository**: https://github.com/HarsukritP/templation
+- **Homepage**: [templation.up.railway.app](https://templation.up.railway.app)
+- **Repository**: [github.com/HarsukritP/templation](https://github.com/HarsukritP/templation)
+- **Issues**: [github.com/HarsukritP/templation/issues](https://github.com/HarsukritP/templation/issues)
+- **Documentation**: [docs.templation.dev](https://docs.templation.dev)
 
 ---
 
-**Made with ❤️ for the Cursor community** 
+**Made with ❤️ by the Templation Team** 

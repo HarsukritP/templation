@@ -15,15 +15,19 @@ router = APIRouter()
 async def get_mcp_user_info(
     current_user: User = Depends(get_current_user_from_api_key)
 ):
-    """Get current user information for MCP server"""
+    """Get current user information for MCP server with enhanced details"""
     try:
+        # Get user statistics
+        stats = await template_service.get_user_stats(current_user.id)
+        
         return {
             "id": current_user.id,
             "email": current_user.email,
             "name": current_user.name,
             "github_username": current_user.github_username,
             "github_connected": current_user.github_connected,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+            "stats": stats
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user info: {str(e)}")
@@ -33,9 +37,18 @@ async def get_mcp_dashboard_stats(
     current_user: User = Depends(get_current_user_from_api_key),
     db: AsyncSession = Depends(get_database)
 ):
-    """Get user dashboard statistics for MCP server"""
+    """Get comprehensive user dashboard statistics for MCP server"""
     try:
-        stats = await UserService.get_user_stats(current_user.id, db)
+        # Get enhanced statistics from template service
+        stats = await template_service.get_user_stats(current_user.id)
+        
+        # Add API key count from user service
+        try:
+            user_stats = await UserService.get_user_stats(current_user.id, db)
+            stats.update(user_stats)
+        except Exception as e:
+            print(f"Error getting user stats from UserService: {e}")
+        
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard stats: {str(e)}")
@@ -43,22 +56,59 @@ async def get_mcp_dashboard_stats(
 @router.get("/search/templates")
 async def search_templates_mcp(
     q: str = Query(..., description="Search query"),
-    limit: int = Query(10, description="Maximum number of results"),
+    limit: int = Query(10, description="Maximum number of results", ge=1, le=50),
     current_user: User = Depends(get_current_user_from_api_key),
     db: AsyncSession = Depends(get_database)
 ):
-    """Search user templates for MCP server"""
+    """Search user templates for MCP server with enhanced filtering"""
     try:
-        # For now, get all user templates and filter by search query
+        # Validate query
+        if not q.strip():
+            raise HTTPException(status_code=400, detail="Search query cannot be empty")
+        
+        # Get all user templates
         all_templates = await template_service.get_user_templates(current_user.id)
         
-        # Simple text-based filtering
-        templates = [
-            t for t in all_templates 
-            if q.lower() in (t.name or "").lower() or 
-               q.lower() in (t.description or "").lower() or
-               any(q.lower() in tag.lower() for tag in (t.tech_stack or []))
-        ][:limit]
+        # Enhanced text-based filtering
+        query_lower = q.lower().strip()
+        query_words = query_lower.split()
+        
+        templates = []
+        for template in all_templates:
+            score = 0
+            
+            # Search in name (highest weight)
+            if template.name and query_lower in template.name.lower():
+                score += 10
+            
+            # Search in description (medium weight)
+            if template.description and query_lower in template.description.lower():
+                score += 5
+            
+            # Search in tech stack (medium weight)
+            if template.tech_stack:
+                for tech in template.tech_stack:
+                    if query_lower in tech.lower():
+                        score += 5
+            
+            # Word-based matching for better results
+            for word in query_words:
+                if len(word) > 2:  # Skip very short words
+                    if template.name and word in template.name.lower():
+                        score += 3
+                    if template.description and word in template.description.lower():
+                        score += 2
+                    if template.tech_stack:
+                        for tech in template.tech_stack:
+                            if word in tech.lower():
+                                score += 3
+            
+            if score > 0:
+                templates.append((template, score))
+        
+        # Sort by score and limit results
+        templates.sort(key=lambda x: x[1], reverse=True)
+        filtered_templates = [t[0] for t in templates[:limit]]
         
         return [
             {
@@ -66,55 +116,122 @@ async def search_templates_mcp(
                 "name": template.name,
                 "description": template.description,
                 "source_repo_url": template.source_repo_url,
+                "source_repo_name": extract_repo_name_from_url(template.source_repo_url),
                 "tech_stack": template.tech_stack or [],
+                "tags": template.tech_stack or [],  # For backward compatibility
                 "screenshot_url": template.screenshot_url,
+                "is_favorite": template.is_favorite,
+                "usage_count": getattr(template, 'usage_count', 0),
+                "last_used": template.last_used.isoformat() if getattr(template, 'last_used', None) else None,
                 "created_at": template.created_at.isoformat() if template.created_at else None
             }
-            for template in templates
+            for template in filtered_templates
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search templates: {str(e)}")
 
-@router.get("/search/exemplar")
+@router.post("/search/exemplar")
 async def search_exemplar_mcp(
-    description: str = Query(..., description="What you want to build"),
-    language: Optional[str] = Query(None, description="Programming language filter"),
-    min_stars: Optional[int] = Query(None, description="Minimum GitHub stars"),
-    max_age_days: Optional[int] = Query(None, description="Maximum age in days"),
+    request: Dict[str, Any],
     current_user: User = Depends(get_current_user_from_api_key)
 ):
-    """Search GitHub repositories for inspiration"""
+    """Search GitHub repositories for inspiration with enhanced filtering"""
     try:
-        from app.models.schemas import SearchFilters
+        description = request.get("description")
+        filters_data = request.get("filters", {})
         
+        # Validate description
+        if not description or not description.strip():
+            raise HTTPException(status_code=400, detail="Description is required")
+        
+        # Parse filters
+        from app.models.schemas import SearchFilters
         filters = SearchFilters(
-            language=language,
-            min_stars=min_stars,
-            max_age_days=max_age_days
+            language=filters_data.get("language"),
+            min_stars=filters_data.get("min_stars"),
+            max_age_days=filters_data.get("max_age_days")
         )
         
-        results = await github_service.search_github_repos(description, filters)
-        return results
+        # Search repositories with enhanced service
+        repos = await github_service.search_github_repos(description.strip(), filters)
+        
+        # Format results for MCP
+        formatted_repos = []
+        for repo in repos:
+            formatted_repos.append({
+                "name": repo.name,
+                "url": repo.url,
+                "demo_url": repo.demo_url,
+                "screenshot_url": repo.screenshot_url,
+                "metrics": {
+                    "stars": repo.metrics.stars,
+                    "forks": repo.metrics.forks,
+                    "updated": repo.metrics.updated,
+                    "issues": getattr(repo.metrics, 'issues', 0),
+                    "watchers": getattr(repo.metrics, 'watchers', 0)
+                },
+                "visual_summary": repo.visual_summary,
+                "description": repo.visual_summary,  # For backward compatibility
+                "tech_stack": repo.tech_stack,
+                "customization_difficulty": repo.customization_difficulty,
+                "quality_score": getattr(repo, 'quality_score', 0),
+                "relevance_score": getattr(repo, 'relevance_score', 0)
+            })
+        
+        return {
+            "repos": formatted_repos,
+            "total_found": len(formatted_repos),
+            "search_time_ms": 0  # Placeholder
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search exemplar repositories: {str(e)}")
 
 @router.post("/template/convert")
 async def convert_template_mcp(
-    repo_url: str,
-    template_description: str,
-    user_context: Optional[Dict[str, Any]] = None,
+    request: Dict[str, Any],
     current_user: User = Depends(get_current_user_from_api_key),
     db: AsyncSession = Depends(get_database)
 ):
-    """Convert GitHub repository to personalized template"""
+    """Convert GitHub repository to personalized template with enhanced processing"""
     try:
-        from app.models.schemas import UserContext
-        user_ctx = UserContext(**user_context) if user_context else None
+        repo_url = request.get("repo_url")
+        template_description = request.get("template_description")
+        user_context_data = request.get("user_context", {})
         
+        # Validate inputs
+        if not repo_url or not repo_url.strip():
+            raise HTTPException(status_code=400, detail="Repository URL is required")
+        
+        if not template_description or not template_description.strip():
+            raise HTTPException(status_code=400, detail="Template description is required")
+        
+        # Validate GitHub URL format
+        import re
+        github_url_pattern = r'^https://github\.com/[^/]+/[^/]+/?$'
+        if not re.match(github_url_pattern, repo_url.strip()):
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid GitHub URL format. Expected: https://github.com/owner/repository"
+            )
+        
+        # Parse user context
+        from app.models.schemas import UserContext
+        user_context = None
+        if user_context_data:
+            try:
+                user_context = UserContext(**user_context_data)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid user context: {str(e)}")
+        
+        # Convert repository to template
         result = await template_service.convert_repo_to_template(
-            repo_url,
-            template_description,
-            user_ctx,
+            repo_url.strip(),
+            template_description.strip(),
+            user_context,
             current_user.id
         )
         
@@ -127,5 +244,98 @@ async def convert_template_mcp(
             "expected_outcome": result.expected_outcome,
             "message": "Template converted successfully!"
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to convert template: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to convert template: {str(e)}")
+
+@router.get("/templates/{template_id}")
+async def get_template_details_mcp(
+    template_id: str,
+    current_user: User = Depends(get_current_user_from_api_key)
+):
+    """Get detailed template information for MCP server"""
+    try:
+        # Validate template ID
+        if not template_id or not template_id.strip():
+            raise HTTPException(status_code=400, detail="Template ID is required")
+        
+        # Get template
+        template = await template_service.get_template(template_id.strip())
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Check if user owns this template
+        if template.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Format template data
+        return {
+            "id": template.id,
+            "name": template.name,
+            "description": template.description,
+            "source_repo_url": template.source_repo_url,
+            "source_repo_name": extract_repo_name_from_url(template.source_repo_url),
+            "tech_stack": template.tech_stack or [],
+            "screenshot_url": template.screenshot_url,
+            "is_favorite": template.is_favorite,
+            "usage_count": getattr(template, 'usage_count', 0),
+            "last_used": template.last_used.isoformat() if getattr(template, 'last_used', None) else None,
+            "created_at": template.created_at.isoformat() if template.created_at else None,
+            "updated_at": template.updated_at.isoformat() if getattr(template, 'updated_at', None) else None,
+            "template_data": template.template_data or {}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get template details: {str(e)}")
+
+@router.put("/templates/{template_id}/usage")
+async def increment_template_usage_mcp(
+    template_id: str,
+    current_user: User = Depends(get_current_user_from_api_key)
+):
+    """Increment template usage count for MCP server"""
+    try:
+        # Validate template ID
+        if not template_id or not template_id.strip():
+            raise HTTPException(status_code=400, detail="Template ID is required")
+        
+        # Get template
+        template = await template_service.get_template(template_id.strip())
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Check if user owns this template
+        if template.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Update usage count and last used timestamp
+        from app.models.schemas import TemplateUpdate
+        from datetime import datetime
+        
+        update_data = TemplateUpdate(
+            usage_count=(getattr(template, 'usage_count', 0) + 1),
+            last_used=datetime.utcnow()
+        )
+        
+        updated_template = await template_service.update_template(template_id, update_data)
+        
+        return {
+            "success": True,
+            "usage_count": getattr(updated_template, 'usage_count', 0),
+            "last_used": updated_template.last_used.isoformat() if getattr(updated_template, 'last_used', None) else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update template usage: {str(e)}")
+
+def extract_repo_name_from_url(url: str) -> str:
+    """Extract repository name from GitHub URL"""
+    try:
+        import re
+        match = re.match(r'https://github\.com/([^/]+/[^/]+)', url)
+        return match.group(1) if match else "Unknown Repository"
+    except:
+        return "Unknown Repository" 
