@@ -1,6 +1,6 @@
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DashboardLayout } from "../../components/layout/dashboard-layout"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Plus, Github, FileText, Clock, Star } from "lucide-react"
 
 export default function DashboardPage() {
