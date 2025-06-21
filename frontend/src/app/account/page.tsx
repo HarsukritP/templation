@@ -4,15 +4,32 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Copy, Eye, EyeOff, Plus, Trash2, User, Key, Settings, Github } from "lucide-react"
+import { Copy, Plus, Trash2, User, Key, Settings, Github } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
+import Image from "next/image"
+
+interface ApiKey {
+  id: string
+  name: string
+  key_prefix: string
+  usage_count: number
+  usage_limit: number
+  last_used: string | null
+  is_active: boolean
+  created_at: string | null
+  expires_at: string | null
+}
+
+interface CreateApiKeyResponse {
+  key: string
+  [key: string]: unknown
+}
 
 export default function AccountPage() {
   const { user } = useUser()
   const [activeTab, setActiveTab] = useState('profile')
-  const [showKey, setShowKey] = useState<string | null>(null)
-  const [apiKeys, setApiKeys] = useState<any[]>([])
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,7 +44,7 @@ export default function AccountPage() {
       setLoading(true)
       setError(null)
       const { api } = await import('../../lib/api')
-      const keys = await api.getApiKeys() as any[]
+      const keys = await api.getApiKeys() as ApiKey[]
       setApiKeys(keys)
     } catch (err) {
       console.error('Error fetching API keys:', err)
@@ -41,7 +58,7 @@ export default function AccountPage() {
     try {
       setError(null)
       const { api } = await import('../../lib/api')
-      const newKey = await api.createApiKey(name) as any
+      const newKey = await api.createApiKey(name) as CreateApiKeyResponse
       
       // Show the new key in an alert (in production, you'd want a proper modal)
       alert(`API Key Created!\n\nKey: ${newKey.key}\n\nSave this key - it won't be shown again!`)
@@ -70,10 +87,6 @@ export default function AccountPage() {
     }
   }
 
-  const toggleKeyVisibility = (keyId: string) => {
-    setShowKey(showKey === keyId ? null : keyId)
-  }
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     // You could add a toast notification here
@@ -86,7 +99,7 @@ export default function AccountPage() {
   ]
 
   const generateMCPConfig = () => {
-    const apiKey = apiKeys[0]?.key || 'your_api_key_here'
+    const apiKey = apiKeys[0]?.key_prefix || 'your_api_key_here'
     return {
       mcpServers: {
         templation: {
@@ -149,9 +162,11 @@ export default function AccountPage() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-4">
                     {user?.picture && (
-                      <img
+                      <Image
                         src={user.picture}
                         alt="Profile"
+                        width={64}
+                        height={64}
                         className="w-16 h-16 rounded-full"
                       />
                     )}
