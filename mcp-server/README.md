@@ -1,166 +1,224 @@
-# Templation MCP Server
+# @templation/mcp-server
 
-Transform GitHub repositories into personalized templates with AI assistance directly in Cursor or Claude Desktop.
+Transform GitHub repositories into personalized templates directly in Cursor with AI-powered code discovery.
 
-## 🚀 Quick Setup
+## 🚀 Features
 
-### 1. Install the MCP Server
+- **🔍 Search GitHub Repositories**: Find repos with visual previews and quality metrics
+- **🎯 Convert to Templates**: Transform any GitHub repo into a personalized template
+- **📚 Template Library**: Search and manage your saved templates
+- **👤 User Dashboard**: Get account info and usage statistics
+- **🔑 API Key Authentication**: Secure access to your Templation account
 
-```bash
-# Install globally via npm
-npm install -g @templation/mcp-server
+## 📦 Installation
 
-# Or if you prefer to run from source:
-git clone https://github.com/your-username/templation.git
-cd templation/mcp-server
-npm install
-npm run build
+1. **Install the MCP server**:
+   ```bash
+   npm install -g @templation/mcp-server
+   ```
+
+2. **Get your API key** from [templation.up.railway.app/account](https://templation.up.railway.app/account)
+
+3. **Configure in Cursor**: Add to your MCP settings:
+   ```json
+   {
+     "mcpServers": {
+       "templation": {
+         "command": "npx",
+         "args": ["-y", "@templation/mcp-server"],
+         "env": {
+           "TEMPLATION_API_KEY": "your-api-key-here"
+         }
+       }
+     }
+   }
+   ```
+
+## 🛠️ Available Functions
+
+### 1. `search_exemplar` - Find Inspiration
+Search GitHub for repositories that match your project vision.
+
+**Usage**: 
+```
+Search for "React portfolio website with TypeScript"
 ```
 
-### 2. Get Your API Key
+**Parameters**:
+- `description` (required): What you want to build
+- `filters` (optional): Refine your search
+  - `language`: Programming language (e.g., "TypeScript", "Python")
+  - `min_stars`: Minimum GitHub stars
+  - `max_age_days`: Maximum age in days
 
-1. Go to [Templation Web App](https://templation.up.railway.app)
-2. Sign in with Auth0
-3. Navigate to **Account** → **API Keys** tab
-4. Click **Create New Key** and give it a name (e.g., "MCP Server")
-5. **Copy the API key** (it will only be shown once!)
+**Example**:
+```
+Description: "Next.js blog with MDX and dark mode"
+Filters: {"language": "TypeScript", "min_stars": 100}
+```
 
-### 3. Configure Claude Desktop
+### 2. `template_converter` - Create Templates
+Convert any GitHub repository into a personalized template with setup instructions.
 
-Create or edit your Claude Desktop configuration file:
+**Usage**:
+```
+Convert https://github.com/vercel/nextjs-blog for "Personal portfolio with AI projects"
+```
 
-**macOS**: `~/.config/claude-desktop/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**Parameters**:
+- `repo_url` (required): GitHub repository URL
+- `template_description` (required): How you want to customize it
+- `user_context` (optional): Personalization options
+  - `project_name`: Your project name
+  - `preferred_style`: Styling approach
+  - `additional_features`: Extra features to include
 
-Add this configuration:
-
-```json
-{
-  "mcpServers": {
-    "templation": {
-      "command": "npx",
-      "args": ["@templation/mcp-server"],
-      "env": {
-        "TEMPLATION_API_KEY": "your_api_key_here",
-        "TEMPLATION_API_URL": "https://templation-backend.up.railway.app"
-      }
-    }
-  }
+**Example**:
+```
+Repository: https://github.com/shadcn-ui/ui
+Description: "Component library for my SaaS dashboard"
+Context: {
+  "project_name": "TaskFlow",
+  "preferred_style": "modern",
+  "additional_features": ["dark mode", "mobile responsive"]
 }
 ```
 
-### 4. Configure Cursor (Alternative)
+### 3. `search_templates` - Find Your Templates
+Search through your saved templates by name or description.
 
-If you're using Cursor, add this to your Cursor settings:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "templation": {
-        "command": "npx",
-        "args": ["@templation/mcp-server"],
-        "env": {
-          "TEMPLATION_API_KEY": "your_api_key_here",
-          "TEMPLATION_API_URL": "https://templation-backend.up.railway.app"
-        }
-      }
-    }
-  }
-}
+**Usage**:
+```
+Search templates for "React"
 ```
 
-### 5. Restart and Test
+**Parameters**:
+- `query` (required): Search term
+- `limit` (optional): Max results (default: 10)
 
-1. **Restart Claude Desktop or Cursor**
-2. Open a new conversation
-3. Try these commands:
-
-```
-Can you get my user info from Templation?
-```
-
-```
-Show me my dashboard statistics
-```
-
-```
-Search for React templates
-```
-
-## 🛠 Available Functions
-
-### `search_templates`
-Search your saved templates by name or description.
-
-**Example**: "Search for React portfolio templates"
-
-### `get_user_info`
+### 4. `get_user_info` - Account Details
 Get information about your Templation account.
 
-**Example**: "What's my user info?"
+**Usage**:
+```
+Get my user information
+```
 
-### `get_dashboard_stats`
-Get your dashboard statistics (templates, repositories, etc.).
+### 5. `get_dashboard_stats` - Usage Statistics
+View your dashboard statistics and activity.
 
-**Example**: "Show me my dashboard stats"
+**Usage**:
+```
+Show my dashboard stats
+```
 
-## 🔧 Troubleshooting
+## 🔧 Configuration
 
-### "API key not configured" Error
-- Make sure you've set the `TEMPLATION_API_KEY` environment variable
-- Verify the API key is correct (create a new one if needed)
+### Environment Variables
 
-### "Server failed to start" Error
-- Check that Node.js is installed (`node --version`)
-- Make sure the package is installed (`npm list -g @templation/mcp-server`)
-- Try reinstalling: `npm install -g @templation/mcp-server`
+- `TEMPLATION_API_KEY`: Your API key (required)
+- `TEMPLATION_API_URL`: API base URL (optional, defaults to production)
 
-### "No templates found" Error
-- Create some templates in the Templation web app first
-- Make sure you're signed in with the same account
+### Getting Your API Key
 
-### Connection Issues
-- Verify the `TEMPLATION_API_URL` is set correctly
+1. Visit [templation.up.railway.app](https://templation.up.railway.app)
+2. Sign up or log in
+3. Go to Account Settings
+4. Generate a new API key
+5. Copy and use in your MCP configuration
+
+## 🌟 Usage Examples
+
+### Find and Convert a Repository
+
+1. **Search for inspiration**:
+   ```
+   search_exemplar("Python FastAPI REST API with authentication")
+   ```
+
+2. **Convert to template**:
+   ```
+   template_converter(
+     repo_url: "https://github.com/tiangolo/full-stack-fastapi-postgresql",
+     template_description: "API backend for my SaaS product",
+     user_context: {
+       "project_name": "MyApp API",
+       "additional_features": ["JWT auth", "email notifications"]
+     }
+   )
+   ```
+
+3. **Find your template later**:
+   ```
+   search_templates("FastAPI")
+   ```
+
+### Workflow Integration
+
+**For New Projects**:
+1. Use `search_exemplar` to find similar projects
+2. Use `template_converter` to create your template
+3. Follow the setup instructions provided
+4. Use `search_templates` to find it later
+
+**For Existing Templates**:
+1. Use `search_templates` to find saved templates
+2. View template details and recreation steps
+3. Access template data from your dashboard
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**"Invalid API key"**:
+- Check your API key at [templation.up.railway.app/account](https://templation.up.railway.app/account)
+- Ensure it's correctly set in your MCP configuration
+- Make sure there are no extra spaces or characters
+
+**"No repositories found"**:
+- Try broader search terms
+- Remove restrictive filters
+- Check if the repository is public and accessible
+
+**"Template conversion failed"**:
+- Verify the GitHub repository URL is correct
+- Ensure the repository is publicly accessible
 - Check your internet connection
-- Try creating a new API key
 
-## 🧪 Testing Locally
+### Getting Help
 
-You can test the MCP server locally:
+- **Web App**: [templation.up.railway.app](https://templation.up.railway.app)
+- **Dashboard**: [templation.up.railway.app/dashboard](https://templation.up.railway.app/dashboard)
+- **Account**: [templation.up.railway.app/account](https://templation.up.railway.app/account)
 
-```bash
-# Test tool listing
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | \
-  TEMPLATION_API_KEY=your_key_here npx @templation/mcp-server
+## 🎯 Tips for Best Results
 
-# Test user info (replace with your actual API key)
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_user_info", "arguments": {}}}' | \
-  TEMPLATION_API_KEY=your_key_here npx @templation/mcp-server
-```
+### Search Tips
+- Use descriptive terms: "React e-commerce with Stripe" vs "React app"
+- Include tech stack: "Vue.js dashboard with TypeScript"
+- Mention specific features: "blog with dark mode and comments"
 
-## 📝 Development
+### Template Conversion Tips
+- Be specific about customization: "Portfolio for data scientist" vs "Portfolio"
+- Include your use case: "Landing page for AI startup"
+- Mention preferred technologies: "Using Tailwind CSS and Framer Motion"
 
-```bash
-# Run in development mode
-npm run dev
+### Organization Tips
+- Use consistent naming for templates
+- Include project context in descriptions
+- Tag templates with relevant technologies
 
-# Build for production
-npm run build
+## 📊 Version History
 
-# Start built version
-npm start
-```
+- **v1.1.0**: Added `search_exemplar` and `template_converter` functions
+- **v1.0.1**: Initial release with basic template search and user functions
 
 ## 🔗 Links
 
-- [Templation Web App](https://templation.up.railway.app)
-- [GitHub Repository](https://github.com/your-username/templation)
-- [MCP Documentation](https://modelcontextprotocol.io)
+- **Web Application**: https://templation.up.railway.app
+- **API Documentation**: https://templation-api.up.railway.app/docs
+- **GitHub Repository**: https://github.com/HarsukritP/templation
 
-## 🆘 Support
+---
 
-If you need help:
-1. Check the troubleshooting section above
-2. Create an issue on GitHub
-3. Make sure your API key is valid and active 
+**Made with ❤️ for the Cursor community** 

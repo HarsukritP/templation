@@ -1,13 +1,14 @@
 {
   "name": "@templation/mcp-server",
-  "version": "1.0.0",
-  "description": "MCP server for Templation - Transform GitHub repositories into personalized templates",
+  "version": "1.1.0",
+  "description": "MCP server for Templation - Search GitHub repos, convert them to templates, and manage your coding templates directly in Cursor",
   "main": "dist/index.js",
   "bin": {
-    "templation-mcp": "./dist/index.js"
+    "mcp-server": "dist/index.js"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -26,14 +27,23 @@
     "development"
   ],
   "author": "Templation",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HarsukritP/templation.git",
+    "directory": "mcp-server"
+  },
+  "homepage": "https://templation.up.railway.app",
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
-    "@types/node": "^22.10.2",
-    "@types/node-fetch": "^2.6.11",
     "dotenv": "^16.4.7",
     "node-fetch": "^3.3.2",
+    "templation-mcp-server": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/node-fetch": "^2.6.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }
