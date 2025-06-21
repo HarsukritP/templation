@@ -261,6 +261,103 @@ async def reset_github_connections():
             "message": "Failed to reset GitHub connections"
         }
 
+@app.get("/debug/users")
+async def list_users():
+    """Debug endpoint to see what users exist in the database"""
+    try:
+        # Get database URL
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return {"error": "DATABASE_URL not configured", "success": False}
+        
+        # Convert to async URL
+        async_url = get_async_database_url(database_url)
+        
+        # Create async engine
+        engine = create_async_engine(async_url)
+        
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            # Get all users
+            result = await conn.execute(text("""
+                SELECT 
+                    id, 
+                    auth0_id, 
+                    email, 
+                    name, 
+                    github_username, 
+                    github_connected,
+                    created_at
+                FROM users 
+                ORDER BY created_at DESC
+            """))
+            
+            users = []
+            for row in result.fetchall():
+                users.append({
+                    "id": row[0],
+                    "auth0_id": row[1],
+                    "email": row[2],
+                    "name": row[3],
+                    "github_username": row[4],
+                    "github_connected": row[5],
+                    "created_at": str(row[6]) if row[6] else None
+                })
+            
+            return {
+                "success": True,
+                "users": users,
+                "total_users": len(users)
+            }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to list users"
+        }
+
+@app.post("/debug/test-auth")
+async def test_auth(x_user_id: str = Header(None, alias="X-User-ID")):
+    """Test endpoint to debug authentication"""
+    try:
+        if not x_user_id:
+            return {
+                "success": False,
+                "error": "No X-User-ID header provided",
+                "headers_received": "Check if frontend is sending auth headers"
+            }
+        
+        from app.db.database import get_database
+        from app.services.user_service import UserService
+        
+        async with get_database() as db:
+            # Try to get or create user
+            minimal_user_data = {
+                "sub": x_user_id,
+                "email": f"user-{x_user_id.split('|')[-1]}@example.com",
+                "name": "Test User"
+            }
+            
+            user = await UserService.get_or_create_user(minimal_user_data, db)
+            
+            return {
+                "success": True,
+                "user_id": user.id,
+                "auth0_id": user.auth0_id,
+                "email": user.email,
+                "github_connected": user.github_connected,
+                "github_username": user.github_username,
+                "message": "Authentication test successful"
+            }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Authentication test failed"
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

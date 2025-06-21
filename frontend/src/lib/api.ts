@@ -19,25 +19,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export class ApiClient {
   private static async getAuthHeaders(): Promise<Record<string, string>> {
-    try {
-      // Get session from Auth0
-      const response = await fetch('/api/auth/me')
-      if (response.ok) {
-        const user = await response.json()
-        // For now, we'll use a simple approach - the backend will validate the session
-        // In a production app, you'd want to get the actual JWT access token
-        return {
-          'Content-Type': 'application/json',
-          'X-User-ID': user.sub || '',
-        }
-      }
-    } catch (error) {
-      console.error('Failed to get user info:', error)
-    }
+    // For now, use a test user ID to debug the API
+    // TODO: Replace with proper Auth0 integration
+    const testUserId = 'auth0|test-user-123';
     
     return {
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'application/json',
+      'X-User-ID': testUserId,
+    };
   }
 
   static async get<T>(endpoint: string): Promise<T> {
