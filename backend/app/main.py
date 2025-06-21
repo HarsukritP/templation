@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
 import os
 
 from app.routers import auth, search, templates, users, api_keys
 from app.db.redis_client import init_redis
-from app.db.database import init_database, close_database
+from app.db.database import init_database, close_database, get_database
 from app.models.database import Base
 from sqlalchemy.ext.asyncio import create_async_engine
 from app.db.database import get_async_database_url
@@ -318,7 +319,10 @@ async def list_users():
         }
 
 @app.post("/debug/test-auth")
-async def test_auth(x_user_id: str = Header(None, alias="X-User-ID")):
+async def test_auth(
+    x_user_id: str = Header(None, alias="X-User-ID"),
+    db: AsyncSession = Depends(get_database)
+):
     """Test endpoint to debug authentication"""
     try:
         if not x_user_id:
@@ -328,28 +332,26 @@ async def test_auth(x_user_id: str = Header(None, alias="X-User-ID")):
                 "headers_received": "Check if frontend is sending auth headers"
             }
         
-        from app.db.database import get_database
         from app.services.user_service import UserService
         
-        async with get_database() as db:
-            # Try to get or create user
-            minimal_user_data = {
-                "sub": x_user_id,
-                "email": f"user-{x_user_id.split('|')[-1]}@example.com",
-                "name": "Test User"
-            }
-            
-            user = await UserService.get_or_create_user(minimal_user_data, db)
-            
-            return {
-                "success": True,
-                "user_id": user.id,
-                "auth0_id": user.auth0_id,
-                "email": user.email,
-                "github_connected": user.github_connected,
-                "github_username": user.github_username,
-                "message": "Authentication test successful"
-            }
+        # Create minimal user data for testing
+        minimal_user_data = {
+            "sub": x_user_id,
+            "email": f"user-{x_user_id.split('|')[-1]}@example.com",
+            "name": "Test User"
+        }
+        
+        user = await UserService.get_or_create_user(minimal_user_data, db)
+        
+        return {
+            "success": True,
+            "user_id": user.id,
+            "auth0_id": user.auth0_id,
+            "email": user.email,
+            "github_connected": user.github_connected,
+            "github_username": user.github_username,
+            "message": "Authentication test successful"
+        }
     
     except Exception as e:
         return {
