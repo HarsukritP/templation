@@ -10,9 +10,25 @@ logger = logging.getLogger(__name__)
 
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    # Railway provides postgres:// but SQLAlchemy needs postgresql://
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+
+def get_async_database_url(database_url: str) -> str:
+    """Convert database URL to async format for asyncpg"""
+    if not database_url:
+        return ""
+    
+    # Handle Railway's postgres:// format
+    if database_url.startswith("postgres://"):
+        # Replace postgres:// with postgresql+asyncpg://
+        return database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgresql://"):
+        # Replace postgresql:// with postgresql+asyncpg://
+        return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgresql+asyncpg://"):
+        # Already in correct format
+        return database_url
+    else:
+        # Assume it's a postgresql URL and add asyncpg driver
+        return f"postgresql+asyncpg://{database_url}"
 
 # Create async engine
 engine = None
@@ -23,17 +39,26 @@ async def init_database():
     global engine, AsyncSessionLocal
     
     if not DATABASE_URL:
-        logger.error("DATABASE_URL environment variable not set")
-        raise ValueError("DATABASE_URL environment variable not set")
+        logger.warning("DATABASE_URL environment variable not set - database features will be disabled")
+        return
     
     try:
+        # Convert to async URL
+        async_url = get_async_database_url(DATABASE_URL)
+        logger.info(f"Connecting to database...")
+        
         # Create async engine
         engine = create_async_engine(
-            DATABASE_URL,
+            async_url,
             echo=False,  # Set to True for SQL logging
             pool_pre_ping=True,
             pool_recycle=300,
         )
+        
+        # Test connection
+        async with engine.begin() as conn:
+            # Test the connection
+            await conn.execute("SELECT 1")
         
         # Create session factory
         AsyncSessionLocal = async_sessionmaker(
@@ -50,12 +75,14 @@ async def init_database():
         
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
-        raise
+        logger.warning("Database features will be disabled")
+        engine = None
+        AsyncSessionLocal = None
 
 async def get_database() -> AsyncGenerator[AsyncSession, None]:
     """Get database session"""
     if AsyncSessionLocal is None:
-        await init_database()
+        raise Exception("Database not available - please check DATABASE_URL configuration")
     
     async with AsyncSessionLocal() as session:
         try:
