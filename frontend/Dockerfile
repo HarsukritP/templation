@@ -24,14 +24,17 @@ WORKDIR /app
 
 ENV NODE_ENV production
 
+RUN apk add --no-cache libc6-compat
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Copy package files and install production dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy the built application
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 USER nextjs
 
