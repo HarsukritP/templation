@@ -156,6 +156,7 @@ export default function AccountPage() {
     try {
       const { api } = await import('../../lib/api')
       const status = await api.getGithubOAuthStatus() as GitHubOAuthStatus
+      console.log('OAuth status response:', status)
       setGithubOAuthStatus(status)
     } catch (err) {
       console.error('Error fetching GitHub OAuth status:', err)
@@ -387,6 +388,10 @@ export default function AccountPage() {
                   
                   {/* GitHub Instructions */}
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    {/* Debug info */}
+                    <div className="mb-2 text-xs text-red-500">
+                      Debug: OAuth configured = {String(githubOAuthStatus?.configured)} | OAuth status = {JSON.stringify(githubOAuthStatus)}
+                    </div>
                     {githubOAuthStatus?.configured ? (
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">
@@ -409,7 +414,7 @@ export default function AccountPage() {
                           <li>4. Copy the token and paste it when connecting</li>
                         </ol>
                       </div>
-                    )}
+                    )}image.png
                   </div>
                 </CardContent>
               </Card>
