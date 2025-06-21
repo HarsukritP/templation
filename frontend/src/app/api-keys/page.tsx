@@ -4,7 +4,7 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Copy, Trash2, Key, CheckCircle } from "lucide-react"
+import { Plus, Copy, Trash2, Key, CheckCircle, Eye, EyeOff, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
 
@@ -20,8 +20,17 @@ interface ApiKey {
   expires_at: string | null
 }
 
+interface Notification {
+  type: 'success' | 'error'
+  message: string
+  key?: string
+}
+
 interface CreateApiKeyResponse {
   key: string
+  name: string
+  id: string
+  message: string
   [key: string]: unknown
 }
 
@@ -30,19 +39,18 @@ export default function ApiKeysPage() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notification, setNotification] = useState<Notification | null>(null)
+  
+  // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newKeyName, setNewKeyName] = useState('')
-  const [newKeyExpiry, setNewKeyExpiry] = useState<number | ''>('')
+  const [newKeyExpiry, setNewKeyExpiry] = useState('365')
   const [isCreating, setIsCreating] = useState(false)
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string, key?: string} | null>(null)
-
-  // Auto-dismiss notifications (except for new API key notifications)
-  useEffect(() => {
-    if (notification && !notification.key) {
-      const timer = setTimeout(() => setNotification(null), 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [notification])
+  
+  // New API key success modal state
+  const [showNewKeyModal, setShowNewKeyModal] = useState(false)
+  const [newCreatedKey, setNewCreatedKey] = useState<CreateApiKeyResponse | null>(null)
+  const [keyCopied, setKeyCopied] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -50,13 +58,23 @@ export default function ApiKeysPage() {
     }
   }, [user])
 
+  // Auto-dismiss notification after 5 seconds
+  useEffect(() => {
+    if (notification && !notification.key) {
+      const timer = setTimeout(() => {
+        setNotification(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
+
   const fetchApiKeys = async () => {
     try {
       setLoading(true)
-      setError(null)
       const { api } = await import('../../lib/api')
       const keys = await api.getApiKeys() as ApiKey[]
-      setApiKeys(keys)
+      setApiKeys(keys || [])
+      setError(null)
     } catch (err) {
       console.error('Error fetching API keys:', err)
       setError('Failed to load API keys')
@@ -82,15 +100,14 @@ export default function ApiKeysPage() {
         newKeyExpiry ? Number(newKeyExpiry) : undefined
       ) as CreateApiKeyResponse
       
-      setNotification({
-        type: 'success',
-        message: 'API Key Created Successfully!',
-        key: newKey.key
-      })
+      // Show the new key modal instead of notification
+      setNewCreatedKey(newKey)
+      setShowNewKeyModal(true)
+      setKeyCopied(false)
       
       setShowCreateModal(false)
       setNewKeyName('')
-      setNewKeyExpiry('')
+      setNewKeyExpiry('365')
       await fetchApiKeys()
       
     } catch (err) {
@@ -128,12 +145,21 @@ export default function ApiKeysPage() {
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setNotification({
-      type: 'success',
-      message: 'Copied to clipboard!'
-    })
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setKeyCopied(true)
+      setNotification({
+        type: 'success',
+        message: 'API key copied to clipboard!'
+      })
+    } catch (err) {
+      console.error('Failed to copy:', err)
+      setNotification({
+        type: 'error',
+        message: 'Failed to copy to clipboard'
+      })
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -145,8 +171,6 @@ export default function ApiKeysPage() {
       minute: '2-digit'
     })
   }
-
-
 
   const getExpiryStatus = (expiresAt: string | null) => {
     if (!expiresAt) return { status: 'never', color: 'text-muted-foreground', text: 'Never expires' }
@@ -213,32 +237,14 @@ export default function ApiKeysPage() {
           </div>
 
           {/* Notification */}
-          {notification && (
+          {notification && !notification.key && (
             <Card className={`border-l-4 ${notification.type === 'success' ? 'border-l-green-500 bg-green-50' : 'border-l-red-500 bg-red-50'}`}>
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className={`text-sm font-medium mb-2 ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    <p className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
                       {notification.message}
                     </p>
-                    {notification.key && (
-                      <div className="bg-gray-900 text-green-400 p-3 rounded-md font-mono text-sm">
-                        <div className="flex items-center justify-between">
-                          <span>{notification.key}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(notification.key!)}
-                            className="ml-2 h-6"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <p className="text-xs text-green-300 mt-2">
-                          ⚠️ Save this key now - it won&apos;t be shown again!
-                        </p>
-                      </div>
-                    )}
                   </div>
                   <button
                     onClick={() => setNotification(null)}
@@ -427,13 +433,13 @@ export default function ApiKeysPage() {
                     <label className="text-sm font-medium">Expiration (optional)</label>
                     <select
                       value={newKeyExpiry}
-                      onChange={(e) => setNewKeyExpiry(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => setNewKeyExpiry(e.target.value)}
                       className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
                     >
                       <option value="">Never expires</option>
-                      <option value={30}>30 days</option>
-                      <option value={90}>90 days</option>
-                      <option value={365}>1 year</option>
+                      <option value="30">30 days</option>
+                      <option value="90">90 days</option>
+                      <option value="365">1 year</option>
                     </select>
                   </div>
                   <div className="flex items-center space-x-2 pt-4">
@@ -451,6 +457,84 @@ export default function ApiKeysPage() {
                     >
                       Cancel
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* New API Key Modal */}
+          {showNewKeyModal && newCreatedKey && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <Card className="w-full max-w-lg">
+                <CardHeader className="text-center">
+                  <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  </div>
+                  <CardTitle className="text-xl">API Key Created Successfully!</CardTitle>
+                  <CardDescription>
+                    Your new API key &quot;{newCreatedKey.name}&quot; has been created.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Warning */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="text-sm font-medium text-amber-800">Important!</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                          This is the only time you&apos;ll see your API key. Copy it now and store it securely.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* API Key Display */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Your API Key</label>
+                    <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm break-all">
+                      {newCreatedKey.key}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col space-y-2">
+                    <Button
+                      onClick={() => copyToClipboard(newCreatedKey.key)}
+                      className={`w-full ${keyCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      size="lg"
+                    >
+                      {keyCopied ? (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Copied to Clipboard!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy API Key
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowNewKeyModal(false)}
+                      className="w-full"
+                      disabled={!keyCopied}
+                    >
+                      {keyCopied ? 'Close' : 'I\'ll copy it later (not recommended)'}
+                    </Button>
+                  </div>
+
+                  {/* Usage Instructions */}
+                  <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
+                    <p className="font-medium mb-1">How to use this API key:</p>
+                    <ul className="space-y-1">
+                      <li>• Add it to your MCP server configuration</li>
+                      <li>• Use it in API requests with the Authorization header</li>
+                      <li>• Keep it secure and never share it publicly</li>
+                    </ul>
                   </div>
                 </CardContent>
               </Card>
