@@ -7,9 +7,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Only protect these specific routes
+    // Only protect these specific routes that require authentication
     "/dashboard/:path*",
+    "/templates/:path*", 
     "/api-keys/:path*",
+    "/account/:path*",
     // Auth routes are handled by Auth0
     "/auth/:path*"
   ]

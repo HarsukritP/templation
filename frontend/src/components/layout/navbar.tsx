@@ -26,26 +26,20 @@ export function Navbar() {
           
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
-            <Link
-              href="/dashboard"
-              className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-            >
-              Dashboard
-            </Link>
+            {user && (
+              <Link
+                href="/dashboard"
+                className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
             <Link
               href="/setup"
               className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
             >
               Setup
             </Link>
-            {user && (
-              <Link
-                href="/api-keys"
-                className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-              >
-                API Keys
-              </Link>
-            )}
           </div>
 
           {/* Auth Section */}

@@ -7,10 +7,21 @@ import {
   LayoutDashboard, 
   FileText, 
   Settings, 
-  BookOpen
+  BookOpen,
+  Key
 } from "lucide-react"
 
-const sidebarItems = [
+// Public navigation items (always visible)
+const publicItems = [
+  {
+    title: "Setup Guide",
+    href: "/setup",
+    icon: BookOpen,
+  },
+]
+
+// Private navigation items (only visible when authenticated)
+const privateItems = [
   {
     title: "Dashboard",
     href: "/dashboard",
@@ -22,9 +33,9 @@ const sidebarItems = [
     icon: FileText,
   },
   {
-    title: "Setup Guide",
-    href: "/setup",
-    icon: BookOpen,
+    title: "API Keys",
+    href: "/api-keys",
+    icon: Key,
   },
   {
     title: "Account",
@@ -35,6 +46,14 @@ const sidebarItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  
+  // For now, we'll simulate auth state - this will be replaced with actual Auth0 hook
+  const isAuthenticated = false // TODO: Replace with actual auth state
+  
+  // Combine items based on auth state
+  const sidebarItems = isAuthenticated 
+    ? [...publicItems, ...privateItems]
+    : publicItems
 
   return (
     <div className="pb-12 w-64">
@@ -59,6 +78,21 @@ export function Sidebar() {
                 </Link>
               )
             })}
+            
+            {/* Show auth prompt when not authenticated */}
+            {!isAuthenticated && (
+              <div className="px-3 py-4 mt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Sign in to access more features
+                </p>
+                <Link
+                  href="/auth/login"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 w-full"
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
