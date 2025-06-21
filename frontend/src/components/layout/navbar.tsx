@@ -26,12 +26,26 @@ export function Navbar() {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6">
             {user && (
-              <Link
-                href="/dashboard"
-                className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
-              >
-                Dashboard
-              </Link>
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/templates"
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  Templates
+                </Link>
+                <Link
+                  href="/api-keys"
+                  className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                >
+                  API Keys
+                </Link>
+              </>
             )}
             <Link
               href="/setup"
