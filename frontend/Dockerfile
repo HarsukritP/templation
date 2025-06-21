@@ -24,7 +24,7 @@ WORKDIR /app
 
 ENV NODE_ENV production
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat curl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -41,10 +41,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
-EXPOSE 3000
+# Railway typically uses port 8080, but we'll let the start script handle the actual port
+EXPOSE 8080
 
-ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-8080}/api/health || exit 1
 
 # Use npm start with explicit port and hostname
 CMD ["npm", "start"] 
