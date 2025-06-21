@@ -4,7 +4,7 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Copy, Trash2, Key, CheckCircle, Eye, EyeOff, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Plus, Copy, Trash2, Key, CheckCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
 
