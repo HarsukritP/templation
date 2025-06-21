@@ -25,14 +25,17 @@ if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
 
 @router.get("/login")
 async def github_oauth_login(
-    request: Request
+    request: Request,
+    user_id: str = None
 ):
     """Initiate GitHub OAuth flow"""
     if not GITHUB_CLIENT_ID:
         raise HTTPException(status_code=500, detail="GitHub OAuth not configured")
     
-    # Get user ID from request headers (set by frontend)
-    user_id = request.headers.get("X-User-ID")
+    # Get user ID from query parameter or header (fallback)
+    if not user_id:
+        user_id = request.headers.get("X-User-ID")
+    
     if not user_id:
         raise HTTPException(status_code=400, detail="User ID required for OAuth flow")
     

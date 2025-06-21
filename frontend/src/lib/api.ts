@@ -141,30 +141,12 @@ export const api = {
     }
   },
   initiateGithubOAuth: async () => {
-    // Use the same auth headers as other API calls
+    // Since we know the OAuth endpoint works from our curl test,
+    // let's build the OAuth URL directly to avoid CORS issues
     const testUserId = 'auth0|test-user-123';
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-User-ID': testUserId,
-    };
     
-    const response = await fetch(`${API_BASE_URL}/api/auth/github/login`, {
-      method: 'GET',
-      headers,
-      redirect: 'manual' // Don't follow redirects automatically
-    })
-    
-    // Handle all redirect status codes (301, 302, 307, 308)
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('Location')
-      if (location) {
-        window.location.href = location
-      } else {
-        throw new Error('No redirect location provided')
-      }
-    } else if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`OAuth initiation failed: ${response.status} ${response.statusText} - ${errorText}`)
-    }
+    // Navigate directly to the OAuth login endpoint
+    // The browser will naturally follow the redirect to GitHub
+    window.location.href = `${API_BASE_URL}/api/auth/github/login?user_id=${encodeURIComponent(testUserId)}`;
   },
 } 
