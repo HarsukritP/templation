@@ -1,11 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "../ui/button"
-import { 
-  FileText, 
-  User
-} from "lucide-react"
+import { User } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 
 export function Navbar() {
@@ -17,7 +15,13 @@ export function Navbar() {
         <div className="flex items-center space-x-8">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 text-primary" />
+            <Image
+              src="/templation-logo.png"
+              alt="Templation Logo"
+              width={20}
+              height={20}
+              className="w-5 h-5"
+            />
             <span className="font-bold text-sm">
               Templation
             </span>
