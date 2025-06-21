@@ -47,36 +47,23 @@ export default function DashboardPage() {
       setLoading(true)
       setError(null)
 
-      // Get access token for API calls
-      const response = await fetch('/api/auth/me')
-      if (!response.ok) throw new Error('Failed to authenticate')
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
+      // Use the API client for authenticated requests
+      const { api } = await import('../../lib/api')
+      
       // Fetch dashboard stats
-      const statsResponse = await fetch(`${apiUrl}/api/users/dashboard/stats`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json()
+      try {
+        const statsData = await api.getDashboardStats() as DashboardStats
         setStats(statsData)
+      } catch (err) {
+        console.error('Error fetching stats:', err)
       }
 
       // Fetch recent templates
-      const templatesResponse = await fetch(`${apiUrl}/api/users/templates?limit=3`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-
-      if (templatesResponse.ok) {
-        const templatesData = await templatesResponse.json()
+      try {
+        const templatesData = await api.getUserTemplates(3) as Template[]
         setTemplates(templatesData)
+      } catch (err) {
+        console.error('Error fetching templates:', err)
       }
 
     } catch (err) {

@@ -5,42 +5,36 @@ from typing import Dict, Any
 from app.db.database import get_database
 from app.services.user_service import UserService
 from app.services.auth_service import get_current_user
+from app.models.database import User
 
 router = APIRouter()
 
 @router.get("/me")
 async def get_current_user_info(
-    current_user: Dict[str, Any] = Depends(get_current_user),
-    db: AsyncSession = Depends(get_database)
+    current_user: User = Depends(get_current_user)
 ):
     """Get current user information"""
     try:
-        # Get or create user in database
-        user = await UserService.get_or_create_user(current_user, db)
-        
         return {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "picture": user.picture,
-            "github_username": user.github_username,
-            "created_at": user.created_at.isoformat() if user.created_at else None
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": current_user.name,
+            "picture": current_user.picture,
+            "github_username": current_user.github_username,
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user info: {str(e)}")
 
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Get user dashboard statistics"""
     try:
-        # Get or create user in database
-        user = await UserService.get_or_create_user(current_user, db)
-        
         # Get user stats
-        stats = await UserService.get_user_stats(user.id, db)
+        stats = await UserService.get_user_stats(current_user.id, db)
         
         return stats
     except Exception as e:
@@ -49,16 +43,13 @@ async def get_dashboard_stats(
 @router.get("/templates")
 async def get_user_templates(
     limit: int = 10,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Get user's templates"""
     try:
-        # Get or create user in database
-        user = await UserService.get_or_create_user(current_user, db)
-        
         # Get user templates
-        templates = await UserService.get_user_templates(user.id, db, limit)
+        templates = await UserService.get_user_templates(current_user.id, db, limit)
         
         return [
             {
@@ -81,16 +72,13 @@ async def get_user_templates(
 @router.get("/repositories")
 async def get_user_repositories(
     limit: int = 10,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Get user's analyzed repositories"""
     try:
-        # Get or create user in database
-        user = await UserService.get_or_create_user(current_user, db)
-        
         # Get user repositories
-        repositories = await UserService.get_user_repositories(user.id, db, limit)
+        repositories = await UserService.get_user_repositories(current_user.id, db, limit)
         
         return [
             {
