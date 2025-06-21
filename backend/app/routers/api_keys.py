@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from pydantic import BaseModel
 import secrets
 import hashlib
 from datetime import datetime, timedelta
@@ -13,6 +14,10 @@ from app.services.api_key_service import APIKeyService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+class CreateAPIKeyRequest(BaseModel):
+    name: str
+    expires_in_days: int = 365
 
 @router.get("/health")
 async def api_keys_health():
@@ -58,32 +63,35 @@ async def get_user_api_keys(
 
 @router.post("/", response_model=dict)
 async def create_api_key(
-    name: str,
-    expires_in_days: int = 365,
+    request: CreateAPIKeyRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Create a new API key for the current user"""
     try:
+        logger.info(f"Creating API key '{request.name}' for user {current_user.id}")
+        
         # Generate a secure API key
-        raw_key = f"tk_{'prod' if 'prod' in name.lower() else 'dev'}_{secrets.token_urlsafe(32)}"
+        raw_key = f"tk_{'prod' if 'prod' in request.name.lower() else 'dev'}_{secrets.token_urlsafe(32)}"
         
         # Hash the key for storage
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         key_prefix = raw_key[:12] + "..." + raw_key[-8:]
         
         # Calculate expiration date
-        expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+        expires_at = datetime.utcnow() + timedelta(days=request.expires_in_days)
         
         # Create API key in database
         api_key = await APIKeyService.create_api_key(
             user_id=current_user.id,
-            name=name,
+            name=request.name,
             key_hash=key_hash,
             key_prefix=key_prefix,
             expires_at=expires_at,
             db=db
         )
+        
+        logger.info(f"Successfully created API key '{request.name}' for user {current_user.id}")
         
         return {
             "id": api_key.id,
@@ -95,6 +103,7 @@ async def create_api_key(
             "message": "API key created successfully. Save this key - it won't be shown again!"
         }
     except Exception as e:
+        logger.error(f"Failed to create API key for user {current_user.id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create API key: {str(e)}")
 
 @router.delete("/{key_id}")
