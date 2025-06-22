@@ -397,7 +397,7 @@ export default function TemplatesPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        <p className="text-sm text-muted-foreground mb-4 min-h-[2.5rem]">
                           {template.description || 'No description available'}
                         </p>
                         

@@ -200,7 +200,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 px-4">
+      <section className="py-24 px-8">
         <motion.div 
           className="max-w-4xl mx-auto text-center space-y-8"
           initial={{ opacity: 0, y: 40 }}
