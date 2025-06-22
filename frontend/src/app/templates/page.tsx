@@ -73,19 +73,26 @@ export default function TemplatesPage() {
     try {
       setLoading(true)
       setError(null)
+      console.log('🔄 Starting to fetch templates and repositories...')
+      console.log('👤 Current user:', user?.sub)
+      
       const { api } = await import('../../lib/api')
       
       // Fetch templates and repositories in parallel
+      console.log('📡 Making API calls...')
       const [templatesData, repositoriesData] = await Promise.all([
         api.getTemplates() as Promise<Template[]>,
         api.getRepositories() as Promise<Repository[]>
       ])
       
-      setTemplates(templatesData)
-      setRepositories(repositoriesData)
+      console.log('✅ Templates received:', templatesData?.length || 0, templatesData)
+      console.log('✅ Repositories received:', repositoriesData?.length || 0, repositoriesData)
+      
+      setTemplates(templatesData || [])
+      setRepositories(repositoriesData || [])
     } catch (err) {
-      console.error('Error fetching data:', err)
-      setError('Failed to load data')
+      console.error('❌ Error fetching data:', err)
+      setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
