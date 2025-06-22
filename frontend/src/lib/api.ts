@@ -1,21 +1,9 @@
 // Railway-specific fix: Use production URL when in production and env var is missing
 // Cache bust: 2025-01-22 - Force HTTPS in production
 const getApiBaseUrl = () => {
-  // If explicitly set, use it but ensure HTTPS in production
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    let url = process.env.NEXT_PUBLIC_API_URL;
-    // Force HTTPS in production if HTTP is accidentally set
-    if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
-      url = url.replace('http://', 'https://');
-      console.log('🔒 Forced HTTPS in production:', url);
-    }
-    console.log('Using NEXT_PUBLIC_API_URL:', url);
-    return url;
-  }
-  
-  // If in production and no env var (Railway issue), use production URL
+  // BULLETPROOF: Always use HTTPS in production
   if (process.env.NODE_ENV === 'production') {
-    console.log('Using production URL: https://templation-api.up.railway.app');
+    console.log('🔒 PRODUCTION MODE: Forcing HTTPS API URL');
     return 'https://templation-api.up.railway.app';
   }
   

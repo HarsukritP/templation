@@ -5,22 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Ensure HTTPS in production
+// Ensure HTTPS in production - BULLETPROOF VERSION
 const getApiBaseUrl = () => {
-  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  
-  // Force HTTPS in production if HTTP is accidentally set
+  // BULLETPROOF: Always use HTTPS in production
   if (process.env.NODE_ENV === 'production') {
-    if (url.startsWith('http://')) {
-      url = url.replace('http://', 'https://');
-    }
-    // Fallback to production URL if no env var
-    if (url === 'https://localhost:8000') {
-      url = 'https://templation-api.up.railway.app';
-    }
+    return 'https://templation-api.up.railway.app';
   }
   
-  return url;
+  // Development fallback
+  return 'http://localhost:8000';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
