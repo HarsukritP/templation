@@ -13,12 +13,13 @@ router = APIRouter()
 
 @router.get("/user/me")
 async def get_mcp_user_info(
-    current_user: User = Depends(get_current_user_from_api_key)
+    current_user: User = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_database)
 ):
     """Get current user information for MCP server with enhanced details"""
     try:
         # Get user statistics
-        stats = await template_service.get_user_stats(current_user.id)
+        stats = await template_service.get_user_stats(current_user.id, db)
         
         return {
             "id": current_user.id,
@@ -40,7 +41,7 @@ async def get_mcp_dashboard_stats(
     """Get comprehensive user dashboard statistics for MCP server"""
     try:
         # Get enhanced statistics from template service
-        stats = await template_service.get_user_stats(current_user.id)
+        stats = await template_service.get_user_stats(current_user.id, db)
         
         # Add API key count from user service
         try:
@@ -67,7 +68,7 @@ async def search_templates_mcp(
             raise HTTPException(status_code=400, detail="Search query cannot be empty")
         
         # Get all user templates
-        all_templates = await template_service.get_user_templates(current_user.id)
+        all_templates = await template_service.get_user_templates(current_user.id, db)
         
         # Enhanced text-based filtering
         query_lower = q.lower().strip()
@@ -169,15 +170,15 @@ async def search_exemplar_mcp(
                     "stars": repo.metrics.stars,
                     "forks": repo.metrics.forks,
                     "updated": repo.metrics.updated,
-                    "issues": getattr(repo.metrics, 'issues', 0),
-                    "watchers": getattr(repo.metrics, 'watchers', 0)
+                    "issues": repo.metrics.issues,
+                    "watchers": repo.metrics.watchers
                 },
                 "visual_summary": repo.visual_summary,
                 "description": repo.visual_summary,  # For backward compatibility
                 "tech_stack": repo.tech_stack,
                 "customization_difficulty": repo.customization_difficulty,
-                "quality_score": getattr(repo, 'quality_score', 0),
-                "relevance_score": getattr(repo, 'relevance_score', 0)
+                "quality_score": repo.quality_score,
+                "relevance_score": repo.relevance_score
             })
         
         return {
@@ -232,7 +233,8 @@ async def convert_template_mcp(
             repo_url.strip(),
             template_description.strip(),
             user_context,
-            current_user.id
+            current_user.id,
+            db
         )
         
         return {
@@ -252,7 +254,8 @@ async def convert_template_mcp(
 @router.get("/templates/{template_id}")
 async def get_template_details_mcp(
     template_id: str,
-    current_user: User = Depends(get_current_user_from_api_key)
+    current_user: User = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_database)
 ):
     """Get detailed template information for MCP server"""
     try:
@@ -261,7 +264,7 @@ async def get_template_details_mcp(
             raise HTTPException(status_code=400, detail="Template ID is required")
         
         # Get template
-        template = await template_service.get_template(template_id.strip())
+        template = await template_service.get_template(template_id.strip(), db)
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         
@@ -293,7 +296,8 @@ async def get_template_details_mcp(
 @router.put("/templates/{template_id}/usage")
 async def increment_template_usage_mcp(
     template_id: str,
-    current_user: User = Depends(get_current_user_from_api_key)
+    current_user: User = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_database)
 ):
     """Increment template usage count for MCP server"""
     try:
@@ -302,7 +306,7 @@ async def increment_template_usage_mcp(
             raise HTTPException(status_code=400, detail="Template ID is required")
         
         # Get template
-        template = await template_service.get_template(template_id.strip())
+        template = await template_service.get_template(template_id.strip(), db)
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         
@@ -319,7 +323,7 @@ async def increment_template_usage_mcp(
             last_used=datetime.utcnow()
         )
         
-        updated_template = await template_service.update_template(template_id, update_data)
+        updated_template = await template_service.update_template(template_id, update_data, db)
         
         return {
             "success": True,

@@ -4,102 +4,164 @@ import asyncio
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import os
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete
 
 from app.models.schemas import (
-    Template, TemplateCreate, TemplateUpdate, 
+    Template as TemplateSchema, TemplateCreate, TemplateUpdate, 
     ConversionResult, UserContext
 )
-from app.db.redis_client import set_json, get_json, delete_key, add_to_list, get_list
+from app.models.database import Template as TemplateModel, User as UserModel
+from app.db.database import get_database
 from app.services.github_service import get_repo_details, get_repo_structure
 
-async def create_template(template_data: TemplateCreate, user_id: str) -> Template:
+async def create_template(template_data: TemplateCreate, user_id: str, db: AsyncSession) -> TemplateSchema:
     """Create a new template with enhanced validation"""
-    template_id = str(uuid.uuid4())
     
     # Validate required fields
     if not template_data.name or not template_data.source_repo_url:
         raise ValueError("Template name and source repository URL are required")
     
-    template = Template(
-        id=template_id,
+    # Extract repo name from URL
+    repo_name = extract_repo_name_from_url(template_data.source_repo_url)
+    
+    # Create database model
+    db_template = TemplateModel(
         user_id=user_id,
         name=template_data.name,
         description=template_data.description,
         source_repo_url=template_data.source_repo_url,
+        source_repo_name=repo_name,
         template_data=template_data.template_data or {},
         screenshot_url=template_data.screenshot_url,
         tech_stack=template_data.tech_stack or [],
-        created_at=datetime.utcnow()
+        tags=template_data.tech_stack or [],  # Keep both for compatibility
     )
     
-    # Store template
-    await set_json(f"template:{template_id}", template.dict())
+    # Store in database
+    db.add(db_template)
+    await db.commit()
+    await db.refresh(db_template)
     
-    # Add to user's template list
-    await add_to_list(f"user:{user_id}:templates", template_id)
-    
-    # Update user statistics
-    await increment_user_stat(user_id, "total_templates")
-    
-    return template
+    # Convert to Pydantic model
+    return TemplateSchema(
+        id=db_template.id,
+        user_id=db_template.user_id,
+        name=db_template.name,
+        description=db_template.description,
+        source_repo_url=db_template.source_repo_url,
+        template_data=db_template.template_data,
+        screenshot_url=db_template.screenshot_url,
+        tech_stack=db_template.tech_stack or [],
+        created_at=db_template.created_at,
+        last_used=db_template.last_used
+    )
 
-async def get_template(template_id: str) -> Optional[Template]:
+async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateSchema]:
     """Get a template by ID with error handling"""
     try:
-        template_data = await get_json(f"template:{template_id}")
-        if template_data:
-            return Template(**template_data)
-        return None
+        result = await db.execute(
+            select(TemplateModel).where(TemplateModel.id == template_id)
+        )
+        db_template = result.scalar_one_or_none()
+        
+        if not db_template:
+            return None
+            
+        return TemplateSchema(
+            id=db_template.id,
+            user_id=db_template.user_id,
+            name=db_template.name,
+            description=db_template.description,
+            source_repo_url=db_template.source_repo_url,
+            template_data=db_template.template_data,
+            screenshot_url=db_template.screenshot_url,
+            tech_stack=db_template.tech_stack or [],
+            created_at=db_template.created_at,
+            last_used=db_template.last_used
+        )
     except Exception as e:
         print(f"Error getting template {template_id}: {e}")
         return None
 
-async def get_user_templates(user_id: str, limit: Optional[int] = None) -> List[Template]:
+async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int] = None) -> List[TemplateSchema]:
     """Get all templates for a user with optional limit"""
     try:
-        template_ids = await get_list(f"user:{user_id}:templates")
-        if not template_ids:
-            return []
+        query = select(TemplateModel).where(TemplateModel.user_id == user_id).order_by(TemplateModel.created_at.desc())
         
-        # Apply limit if specified
         if limit:
-            template_ids = template_ids[:limit]
+            query = query.limit(limit)
+            
+        result = await db.execute(query)
+        db_templates = result.scalars().all()
         
+        # Convert to Pydantic models
         templates = []
-        for template_id in template_ids:
-            template = await get_template(template_id)
-            if template:
-                templates.append(template)
+        for db_template in db_templates:
+            templates.append(TemplateSchema(
+                id=db_template.id,
+                user_id=db_template.user_id,
+                name=db_template.name,
+                description=db_template.description,
+                source_repo_url=db_template.source_repo_url,
+                template_data=db_template.template_data,
+                screenshot_url=db_template.screenshot_url,
+                tech_stack=db_template.tech_stack or [],
+                created_at=db_template.created_at,
+                last_used=db_template.last_used
+            ))
         
-        # Sort by created_at descending
-        templates.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
         return templates
     except Exception as e:
         print(f"Error getting user templates for {user_id}: {e}")
         return []
 
-async def update_template(template_id: str, update_data: TemplateUpdate) -> Optional[Template]:
+async def update_template(template_id: str, update_data: TemplateUpdate, db: AsyncSession) -> Optional[TemplateSchema]:
     """Update a template with validation"""
     try:
-        template = await get_template(template_id)
-        if not template:
+        # Get the template from database
+        result = await db.execute(
+            select(TemplateModel).where(TemplateModel.id == template_id)
+        )
+        db_template = result.scalar_one_or_none()
+        
+        if not db_template:
             return None
         
         # Update fields
         if update_data.name is not None:
-            template.name = update_data.name
+            db_template.name = update_data.name
         if update_data.description is not None:
-            template.description = update_data.description
+            db_template.description = update_data.description
         if update_data.tech_stack is not None:
-            template.tech_stack = update_data.tech_stack
-        if update_data.is_favorite is not None:
-            template.is_favorite = update_data.is_favorite
+            db_template.tech_stack = update_data.tech_stack
+            db_template.tags = update_data.tech_stack  # Keep both for compatibility
+        if hasattr(update_data, 'is_favorite') and update_data.is_favorite is not None:
+            db_template.is_favorite = update_data.is_favorite
+        if hasattr(update_data, 'usage_count') and update_data.usage_count is not None:
+            db_template.usage_count = update_data.usage_count
+        if hasattr(update_data, 'last_used') and update_data.last_used is not None:
+            db_template.last_used = update_data.last_used
         
-        template.updated_at = datetime.utcnow()
+        db_template.updated_at = datetime.utcnow()
         
-        # Save updated template
-        await set_json(f"template:{template_id}", template.dict())
-        return template
+        # Commit changes
+        await db.commit()
+        await db.refresh(db_template)
+        
+        # Return updated template as Pydantic model
+        return TemplateSchema(
+            id=db_template.id,
+            user_id=db_template.user_id,
+            name=db_template.name,
+            description=db_template.description,
+            source_repo_url=db_template.source_repo_url,
+            template_data=db_template.template_data,
+            screenshot_url=db_template.screenshot_url,
+            tech_stack=db_template.tech_stack or [],
+            created_at=db_template.created_at,
+            last_used=db_template.last_used
+        )
     except Exception as e:
         print(f"Error updating template {template_id}: {e}")
         return None
@@ -125,7 +187,8 @@ async def convert_repo_to_template(
     repo_url: str,
     template_description: str,
     user_context: Optional[UserContext],
-    user_id: str
+    user_id: str,
+    db: AsyncSession
 ) -> ConversionResult:
     """Convert a GitHub repository into a personalized template with enhanced AI analysis"""
     try:
@@ -178,7 +241,7 @@ async def convert_repo_to_template(
             tech_stack=extract_tech_stack(repo_details, repo_structure)
         )
         
-        template = await create_template(template_data, user_id)
+        template = await create_template(template_data, user_id, db)
         
         # Track usage statistics
         await increment_user_stat(user_id, "repositories_analyzed")
@@ -599,49 +662,49 @@ async def increment_user_stat(user_id: str, stat_name: str, increment: int = 1):
     except Exception as e:
         print(f"Error incrementing user stat {stat_name} for {user_id}: {e}")
 
-async def get_user_stats(user_id: str) -> Dict[str, Any]:
-    """Get user statistics"""
+async def get_user_stats(user_id: str, db: AsyncSession) -> Dict[str, Any]:
+    """Get user statistics from database"""
     try:
-        stats_key = f"user:{user_id}:stats"
-        stats = await get_json(stats_key) or {}
-        
         # Get template count
-        templates = await get_user_templates(user_id)
-        stats['total_templates'] = len(templates)
-        stats['favorites'] = len([t for t in templates if t.is_favorite])
+        template_result = await db.execute(
+            select(TemplateModel).where(TemplateModel.user_id == user_id)
+        )
+        templates = template_result.scalars().all()
         
-        # Calculate recent activity (templates created this week)
+        # Calculate stats
+        total_templates = len(templates)
+        favorites = len([t for t in templates if t.is_favorite])
+        
+        # Recent activity (templates created this week)
         from datetime import timedelta
         week_ago = datetime.utcnow() - timedelta(days=7)
-        recent_templates = [t for t in templates if t.created_at and t.created_at > week_ago]
-        stats['recent_activity'] = len(recent_templates)
+        recent_templates = len([t for t in templates if t.created_at and t.created_at >= week_ago])
         
-        # Get most used technologies
-        all_tech = []
-        for template in templates:
-            if template.tech_stack:
-                all_tech.extend(template.tech_stack)
-        
-        # Count technology usage
-        tech_counts = {}
-        for tech in all_tech:
-            tech_counts[tech] = tech_counts.get(tech, 0) + 1
-        
-        # Get top 5 technologies
-        stats['most_used_technologies'] = [
-            tech for tech, _ in sorted(tech_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-        ]
-        
-        # Add recent templates info
-        stats['recent_templates'] = [
-            {
-                'name': t.name,
-                'created_at': t.created_at.isoformat() if t.created_at else None
-            }
-            for t in recent_templates[:5]
-        ]
-        
-        return stats
+        return {
+            "total_templates": total_templates,
+            "repositories_analyzed": total_templates,  # For now, same as templates
+            "recent_activity": recent_templates,
+            "favorites": favorites,
+            "templates_this_week": recent_templates
+        }
     except Exception as e:
         print(f"Error getting user stats for {user_id}: {e}")
-        return {} 
+        return {
+            "total_templates": 0,
+            "repositories_analyzed": 0,
+            "recent_activity": 0,
+            "favorites": 0,
+            "templates_this_week": 0
+        }
+
+def extract_repo_name_from_url(url: str) -> str:
+    """Extract repository name from GitHub URL"""
+    try:
+        # https://github.com/owner/repo -> owner/repo
+        if "github.com/" in url:
+            parts = url.split("github.com/")[1].split("/")
+            if len(parts) >= 2:
+                return f"{parts[0]}/{parts[1]}"
+    except:
+        pass
+    return url 

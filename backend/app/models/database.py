@@ -41,6 +41,8 @@ class Template(Base):
     template_data = Column(JSON, nullable=False)  # Generated template structure
     analysis_results = Column(JSON, nullable=True)  # AI analysis results
     tags = Column(JSON, nullable=True)  # ["nextjs", "typescript", "tailwind"]
+    tech_stack = Column(JSON, nullable=True)  # Alternative name for tags
+    screenshot_url = Column(String, nullable=True)  # Template screenshot
     
     # Status and usage
     is_favorite = Column(Boolean, default=False)
@@ -90,8 +92,8 @@ class APIKey(Base):
     
     # Key info
     name = Column(String, nullable=False)  # User-defined name
-    key_hash = Column(String, nullable=False, unique=True)  # Hashed API key
-    key_prefix = Column(String, nullable=False)  # First 8 chars for display
+    key_hash = Column(String, nullable=False, unique=True)  # Full API key (stored as-is for authentication)
+    key_prefix = Column(String, nullable=False)  # First 12 chars + ... + last 8 chars for display
     
     # Usage and limits
     usage_count = Column(Integer, default=0)

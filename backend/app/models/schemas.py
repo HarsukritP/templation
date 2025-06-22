@@ -45,6 +45,9 @@ class TemplateUpdate(BaseModel):
     template_data: Optional[Dict[str, Any]] = None
     screenshot_url: Optional[str] = None
     tech_stack: Optional[List[str]] = None
+    is_favorite: Optional[bool] = None
+    usage_count: Optional[int] = None
+    last_used: Optional[datetime] = None
 
 # Search models
 class SearchFilters(BaseModel):
@@ -56,6 +59,8 @@ class RepoMetrics(BaseModel):
     stars: int
     forks: int
     updated: str
+    issues: int = 0
+    watchers: int = 0
 
 class RepoResult(BaseModel):
     name: str
@@ -66,6 +71,8 @@ class RepoResult(BaseModel):
     visual_summary: str
     tech_stack: List[str]
     customization_difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
+    quality_score: float = 0.0
+    relevance_score: float = 0.0
 
 class SearchRequest(BaseModel):
     description: str
