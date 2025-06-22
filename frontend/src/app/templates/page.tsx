@@ -4,7 +4,7 @@ import { DashboardLayout } from "../../components/layout/dashboard-layout"
 import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Plus, Search, Github, Star, Clock, ExternalLink, Trash2, Edit } from "lucide-react"
+import { Plus, Search, Github, Star, Clock, ExternalLink, Trash2, Edit, Share2 } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { useState, useEffect } from "react"
 // import Image from "next/image"
@@ -185,6 +185,26 @@ export default function TemplatesPage() {
       setNotification({
         type: 'error',
         message: 'Failed to update favorite status'
+      })
+    }
+  }
+
+  const handleShareToMarketplace = async (templateId: string) => {
+    try {
+      const { api } = await import('../../lib/api')
+      const result = await api.toggleTemplatePublic(templateId) as any
+      
+      setNotification({
+        type: 'success',
+        message: result.is_public ? 'Template shared to marketplace!' : 'Template made private'
+      })
+      
+      await fetchData()
+    } catch (err) {
+      console.error('Error sharing template:', err)
+      setNotification({
+        type: 'error',
+        message: 'Failed to share template to marketplace'
       })
     }
   }
@@ -391,6 +411,13 @@ export default function TemplatesPage() {
                             </CardDescription>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleShareToMarketplace(template.id)}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Share to Marketplace"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => handleToggleFavorite(template.id)}
                               className={`p-1 rounded hover:bg-muted ${

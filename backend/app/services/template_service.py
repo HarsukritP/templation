@@ -136,6 +136,8 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
             db_template.usage_count = update_data.usage_count
         if hasattr(update_data, 'last_used') and update_data.last_used is not None:
             db_template.last_used = update_data.last_used
+        if hasattr(update_data, 'is_public') and update_data.is_public is not None:
+            db_template.is_public = update_data.is_public
         
         db_template.updated_at = datetime.utcnow()
         
@@ -700,4 +702,159 @@ def extract_repo_name_from_url(url: str) -> str:
                 return f"{parts[0]}/{parts[1]}"
     except:
         pass
-    return url 
+    return url
+
+# Marketplace Functions
+
+async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offset: int = 0) -> List[TemplateSchema]:
+    """Get all public templates for the marketplace"""
+    try:
+        query = (
+            select(TemplateModel, UserModel.name.label('creator_name'))
+            .join(UserModel, TemplateModel.user_id == UserModel.id)
+            .where(TemplateModel.is_public == True)
+            .order_by(TemplateModel.created_at.desc())
+            .offset(offset)
+        )
+        
+        if limit:
+            query = query.limit(limit)
+            
+        result = await db.execute(query)
+        rows = result.all()
+        
+        # Convert to Pydantic models with creator info
+        templates = []
+        for row in rows:
+            db_template = row[0]
+            creator_name = row[1]
+            
+            template = TemplateSchema(
+                id=db_template.id,
+                user_id=db_template.user_id,
+                name=db_template.name,
+                description=db_template.description,
+                source_repo_url=db_template.source_repo_url,
+                template_data=db_template.template_data,
+                tech_stack=db_template.tags or [],
+                created_at=db_template.created_at,
+                last_used=db_template.last_used
+            )
+            # Add creator name as metadata
+            template.creator_name = creator_name
+            templates.append(template)
+        
+        return templates
+    except Exception as e:
+        print(f"Error getting public templates: {e}")
+        return []
+
+async def search_public_templates(query: str, db: AsyncSession, limit: Optional[int] = 20) -> List[TemplateSchema]:
+    """Search public templates by name, description, or tech stack"""
+    try:
+        search_query = (
+            select(TemplateModel, UserModel.name.label('creator_name'))
+            .join(UserModel, TemplateModel.user_id == UserModel.id)
+            .where(
+                TemplateModel.is_public == True,
+                (TemplateModel.name.ilike(f"%{query}%")) |
+                (TemplateModel.description.ilike(f"%{query}%")) |
+                (TemplateModel.tags.astext.ilike(f"%{query}%"))
+            )
+            .order_by(TemplateModel.created_at.desc())
+        )
+        
+        if limit:
+            search_query = search_query.limit(limit)
+            
+        result = await db.execute(search_query)
+        rows = result.all()
+        
+        # Convert to Pydantic models
+        templates = []
+        for row in rows:
+            db_template = row[0]
+            creator_name = row[1]
+            
+            template = TemplateSchema(
+                id=db_template.id,
+                user_id=db_template.user_id,
+                name=db_template.name,
+                description=db_template.description,
+                source_repo_url=db_template.source_repo_url,
+                template_data=db_template.template_data,
+                tech_stack=db_template.tags or [],
+                created_at=db_template.created_at,
+                last_used=db_template.last_used
+            )
+            template.creator_name = creator_name
+            templates.append(template)
+        
+        return templates
+    except Exception as e:
+        print(f"Error searching public templates: {e}")
+        return []
+
+async def toggle_template_public(template_id: str, user_id: str, db: AsyncSession) -> Optional[bool]:
+    """Toggle a template's public status (only owner can do this)"""
+    try:
+        # Get the template and verify ownership
+        result = await db.execute(
+            select(TemplateModel).where(
+                TemplateModel.id == template_id,
+                TemplateModel.user_id == user_id
+            )
+        )
+        db_template = result.scalar_one_or_none()
+        
+        if not db_template:
+            return None
+        
+        # Toggle public status
+        db_template.is_public = not db_template.is_public
+        db_template.updated_at = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(db_template)
+        
+        return db_template.is_public
+    except Exception as e:
+        print(f"Error toggling template public status {template_id}: {e}")
+        return None
+
+async def get_marketplace_stats(db: AsyncSession) -> Dict[str, Any]:
+    """Get marketplace statistics"""
+    try:
+        # Count public templates
+        public_count_result = await db.execute(
+            select(TemplateModel).where(TemplateModel.is_public == True)
+        )
+        public_templates = public_count_result.scalars().all()
+        public_count = len(public_templates)
+        
+        # Get unique tech stacks
+        tech_stacks = set()
+        for template in public_templates:
+            if template.tags:
+                tech_stacks.update(template.tags)
+        
+        # Count unique creators
+        creator_result = await db.execute(
+            select(TemplateModel.user_id).where(TemplateModel.is_public == True).distinct()
+        )
+        unique_creators = len(creator_result.scalars().all())
+        
+        return {
+            "total_public_templates": public_count,
+            "unique_creators": unique_creators,
+            "available_tech_stacks": list(tech_stacks),
+            "total_tech_stacks": len(tech_stacks)
+        }
+    except Exception as e:
+        print(f"Error getting marketplace stats: {e}")
+        return {
+            "total_public_templates": 0,
+            "unique_creators": 0,
+            "available_tech_stacks": [],
+            "total_tech_stacks": 0
+        } 

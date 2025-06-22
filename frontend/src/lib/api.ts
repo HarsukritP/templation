@@ -137,6 +137,14 @@ export const api = {
   connectGithub: (username: string, accessToken: string) => ApiClient.post('/api/users/github/connect', { github_username: username, access_token: accessToken }),
   disconnectGithub: () => ApiClient.post('/api/users/github/disconnect'),
   
+  // Marketplace endpoints
+  getMarketplaceTemplates: (limit?: number, search?: string) => 
+    ApiClient.get(`/api/marketplace/?${limit ? `limit=${limit}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
+  getMarketplaceStats: () => ApiClient.get('/api/marketplace/stats'),
+  getMarketplaceTemplate: (id: string) => ApiClient.get(`/api/marketplace/${id}`),
+  toggleTemplatePublic: (id: string) => ApiClient.post(`/api/marketplace/${id}/toggle-public`),
+  useMarketplaceTemplate: (id: string) => ApiClient.post(`/api/marketplace/${id}/use`),
+
   // GitHub OAuth endpoints (public)
   getGithubOAuthStatus: async () => {
     try {

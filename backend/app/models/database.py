@@ -46,6 +46,7 @@ class Template(Base):
     
     # Status and usage
     is_favorite = Column(Boolean, default=False)
+    is_public = Column(Boolean, default=False)  # For marketplace sharing
     usage_count = Column(Integer, default=0)
     last_used = Column(DateTime, nullable=True)
     

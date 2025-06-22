@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dotenv import load_dotenv
 import os
 
-from app.routers import auth, search, templates, users, api_keys, mcp, github_oauth, repositories
+from app.routers import auth, search, templates, users, api_keys, mcp, github_oauth, repositories, marketplace
 from app.db.redis_client import init_redis
 from app.db.database import init_database, close_database, get_database
 from app.models.database import Base
@@ -55,6 +55,7 @@ app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(templates.router, prefix="/api", tags=["templates"])
 app.include_router(repositories.router, prefix="/api/repositories", tags=["repositories"])
 app.include_router(mcp.router, prefix="/api", tags=["mcp"])
+app.include_router(marketplace.router, prefix="/api/marketplace", tags=["marketplace"])
 app.include_router(github_oauth.router, prefix="/api/auth/github", tags=["github-oauth"])
 
 @app.get("/")
@@ -380,6 +381,42 @@ async def database_status():
         return {
             "error": str(e),
             "message": "Failed to check database status"
+        }
+
+@app.post("/debug/run-sql")
+async def run_sql(request: dict):
+    """Run arbitrary SQL (for migrations) - REMOVE IN PRODUCTION"""
+    try:
+        sql = request.get("sql")
+        if not sql:
+            return {"error": "SQL is required", "success": False}
+        
+        # Get database URL
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return {"error": "DATABASE_URL not configured", "success": False}
+        
+        # Convert to async URL
+        async_url = get_async_database_url(database_url)
+        
+        # Create async engine
+        engine = create_async_engine(async_url)
+        
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            # Execute the SQL
+            await conn.execute(text(sql))
+        
+        return {
+            "success": True,
+            "message": "SQL executed successfully"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to execute SQL"
         }
 
 @app.post("/debug/migrate-repository-column")

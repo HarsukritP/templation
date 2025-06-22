@@ -46,6 +46,7 @@ class TemplateUpdate(BaseModel):
     screenshot_url: Optional[str] = None
     tech_stack: Optional[List[str]] = None
     is_favorite: Optional[bool] = None
+    is_public: Optional[bool] = None  # For marketplace sharing
     usage_count: Optional[int] = None
     last_used: Optional[datetime] = None
 
