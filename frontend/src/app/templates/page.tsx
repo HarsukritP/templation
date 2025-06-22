@@ -106,7 +106,7 @@ export default function TemplatesPage() {
       // Use the same API client for consistency
       const { api } = await import('../../lib/api')
       
-      const result = await api.convertRepository(
+      await api.convertRepository(
         repoUrl,
         templateDescription,
         {
