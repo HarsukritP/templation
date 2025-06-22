@@ -61,7 +61,11 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     if (user && !isLoading) {
-      fetchData()
+      // Add a small delay to ensure navbar has set the user ID
+      const timer = setTimeout(() => {
+        fetchData()
+      }, 100)
+      return () => clearTimeout(timer)
     }
   }, [user, isLoading])
 
@@ -99,38 +103,17 @@ export default function TemplatesPage() {
     try {
       setIsCreating(true)
       
-      // Use the MCP template converter API with proper authentication
-      // For testing, use the known API key for the test user
-      const testApiKey = 'tk_dev_6UwH7j3DYDmbvxFSx2ZAvXT-Z74AV2U53UyIhIsf_pM'
+      // Use the same API client for consistency
+      const { api } = await import('../../lib/api')
       
-      // Ensure HTTPS in production
-      let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app';
-      if (process.env.NODE_ENV === 'production' && apiUrl.startsWith('http://')) {
-        apiUrl = apiUrl.replace('http://', 'https://');
-      }
-      
-      const response = await fetch(`${apiUrl}/api/template/convert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${testApiKey}`,
-        },
-        body: JSON.stringify({
-          repo_url: repoUrl,
-          template_description: templateDescription,
-          user_context: {
-            project_name: extractRepoName(repoUrl),
-            preferred_style: 'modern'
-          }
-        })
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Template creation failed: ${response.status} ${response.statusText} - ${errorText}`)
-      }
-
-      await response.json()
+      const result = await api.convertRepository(
+        repoUrl,
+        templateDescription,
+        {
+          project_name: extractRepoName(repoUrl),
+          preferred_style: 'modern'
+        }
+      )
       
       setNotification({
         type: 'success',

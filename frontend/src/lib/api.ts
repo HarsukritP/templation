@@ -124,11 +124,13 @@ export function setCurrentUserId(userId: string | null) {
 // Function to get the current user ID
 function getCurrentUserId(): string {
   if (!currentUserId) {
+    console.error('❌ No user ID available - user not authenticated');
     throw new Error('User not authenticated - please log in');
   }
   return currentUserId;
 }
 
+// Enhanced API client with better error handling
 export class ApiClient {
   private static async getAuthHeaders(): Promise<Record<string, string>> {
     try {
@@ -140,56 +142,57 @@ export class ApiClient {
       };
     } catch (error) {
       console.error('Authentication error:', error);
+      // Redirect to login if not authenticated
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/login';
+      }
       throw new Error('Authentication required - please log in');
     }
   }
 
-  static async get<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log('Making GET request to:', url);
+  private static async makeRequest<T>(
+    url: string, 
+    options: RequestInit = {}
+  ): Promise<T> {
+    const headers = await this.getAuthHeaders();
     
     const response = await fetch(url, {
-      method: 'GET',
-      headers,
-    })
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response);
+  }
+
+  static async get<T>(endpoint: string): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log('Making GET request to:', url);
+    return this.makeRequest<T>(url, { method: 'GET' });
   }
 
   static async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
     const url = `${API_BASE_URL}${endpoint}`;
     console.log('Making POST request to:', url, 'with data:', data);
-    
-    const response = await fetch(url, {
+    return this.makeRequest<T>(url, {
       method: 'POST',
-      headers,
       body: data ? JSON.stringify(data) : undefined,
-    })
-
-    return handleResponse<T>(response)
+    });
   }
 
   static async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`;
+    return this.makeRequest<T>(url, {
       method: 'PUT',
-      headers,
       body: data ? JSON.stringify(data) : undefined,
-    })
-
-    return handleResponse<T>(response)
+    });
   }
 
   static async delete<T>(endpoint: string): Promise<T> {
-    const headers = await this.getAuthHeaders()
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'DELETE',
-      headers,
-    })
-
-    return handleResponse<T>(response)
+    const url = `${API_BASE_URL}${endpoint}`;
+    return this.makeRequest<T>(url, { method: 'DELETE' });
   }
 }
 
