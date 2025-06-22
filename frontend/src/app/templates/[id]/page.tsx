@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
 import { ArrowLeft, Github, ExternalLink, Copy, CheckCircle, Play, Code } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -32,6 +32,18 @@ interface Template {
   tech_stack: string[]
 }
 
+interface TemplateApiResponse {
+  id: string
+  name: string
+  description?: string
+  source_repo_name: string
+  source_repo_url: string
+  tags?: string[]
+  created_at: string
+  template_data?: Record<string, unknown>
+  analysis_results?: Record<string, unknown>
+}
+
 export default function TemplateDetailsPage() {
   const { user } = useUser()
   const params = useParams()
@@ -43,67 +55,34 @@ export default function TemplateDetailsPage() {
   const [copiedStep, setCopiedStep] = useState<number | null>(null)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
 
-  useEffect(() => {
-    if (user && templateId) {
-      fetchTemplate()
-    }
-  }, [user, templateId])
-
-  const fetchTemplate = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const { api } = await import('../../../lib/api')
-      
-      const templateData = await api.getTemplate(templateId) as any
-      
-      // Transform the data to match our expected format
-      const transformedTemplate: Template = {
-        id: templateData.id,
-        name: templateData.name,
-        description: templateData.description || `Template converted from ${templateData.source_repo_name}`,
-        source_repo_name: templateData.source_repo_name,
-        source_repo_url: templateData.source_repo_url,
-        tags: templateData.tags || [],
-        created_at: templateData.created_at,
-        conversion_steps: extractConversionSteps(templateData),
-        setup_commands: extractSetupCommands(templateData),
-        files_to_modify: extractFilesToModify(templateData),
-        tech_stack: templateData.tags || []
-      }
-      
-      setTemplate(transformedTemplate)
-      
-    } catch (err) {
-      console.error('Error fetching template:', err)
-      setError('Failed to load template')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const extractConversionSteps = (templateData: any): ConversionStep[] => {
+  const extractConversionSteps = (templateData: TemplateApiResponse): ConversionStep[] => {
     // Try to extract from analysis_results or template_data
     const analysisResults = templateData.analysis_results || {}
     const templateDataObj = templateData.template_data || {}
     
     // Look for conversion steps in various possible locations
-    if (analysisResults.conversion_steps) {
-      return analysisResults.conversion_steps.map((step: any, index: number) => ({
-        step_number: index + 1,
-        title: step.title || `Step ${index + 1}`,
-        description: step.description || step.content || step,
-        command: step.command
-      }))
+    if (analysisResults.conversion_steps && Array.isArray(analysisResults.conversion_steps)) {
+      return analysisResults.conversion_steps.map((step: unknown, index: number) => {
+        const stepObj = step as Record<string, unknown>
+        return {
+          step_number: index + 1,
+          title: (stepObj.title as string) || `Step ${index + 1}`,
+          description: (stepObj.description as string) || (stepObj.content as string) || String(step),
+          command: stepObj.command as string | undefined
+        }
+      })
     }
     
-    if (templateDataObj.steps) {
-      return templateDataObj.steps.map((step: any, index: number) => ({
-        step_number: index + 1,
-        title: step.title || `Step ${index + 1}`,
-        description: step.description || step,
-        command: step.command
-      }))
+    if (templateDataObj.steps && Array.isArray(templateDataObj.steps)) {
+      return templateDataObj.steps.map((step: unknown, index: number) => {
+        const stepObj = step as Record<string, unknown>
+        return {
+          step_number: index + 1,
+          title: (stepObj.title as string) || `Step ${index + 1}`,
+          description: (stepObj.description as string) || String(step),
+          command: stepObj.command as string | undefined
+        }
+      })
     }
     
     // Fallback: create generic steps
@@ -128,9 +107,11 @@ export default function TemplateDetailsPage() {
     ]
   }
 
-  const extractSetupCommands = (templateData: any): string[] => {
+  const extractSetupCommands = (templateData: TemplateApiResponse): string[] => {
     const analysisResults = templateData.analysis_results || {}
-    if (analysisResults.setup_commands) return analysisResults.setup_commands
+    if (analysisResults.setup_commands && Array.isArray(analysisResults.setup_commands)) {
+      return analysisResults.setup_commands as string[]
+    }
     
     return [
       `git clone ${templateData.source_repo_url}`,
@@ -139,9 +120,11 @@ export default function TemplateDetailsPage() {
     ]
   }
 
-  const extractFilesToModify = (templateData: any): string[] => {
+  const extractFilesToModify = (templateData: TemplateApiResponse): string[] => {
     const analysisResults = templateData.analysis_results || {}
-    if (analysisResults.files_to_modify) return analysisResults.files_to_modify
+    if (analysisResults.files_to_modify && Array.isArray(analysisResults.files_to_modify)) {
+      return analysisResults.files_to_modify as string[]
+    }
     
     return [
       "package.json",
@@ -150,6 +133,45 @@ export default function TemplateDetailsPage() {
       "public/"
     ]
   }
+
+  const fetchTemplate = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const { api } = await import('../../../lib/api')
+      
+      const templateData = await api.getTemplate(templateId) as TemplateApiResponse
+      
+      // Transform the data to match our expected format
+      const transformedTemplate: Template = {
+        id: templateData.id,
+        name: templateData.name,
+        description: templateData.description || `Template converted from ${templateData.source_repo_name}`,
+        source_repo_name: templateData.source_repo_name,
+        source_repo_url: templateData.source_repo_url,
+        tags: templateData.tags || [],
+        created_at: templateData.created_at,
+        conversion_steps: extractConversionSteps(templateData),
+        setup_commands: extractSetupCommands(templateData),
+        files_to_modify: extractFilesToModify(templateData),
+        tech_stack: templateData.tags || []
+      }
+      
+      setTemplate(transformedTemplate)
+      
+    } catch (err) {
+      console.error('Error fetching template:', err)
+      setError('Failed to load template')
+    } finally {
+      setLoading(false)
+    }
+  }, [templateId])
+
+  useEffect(() => {
+    if (user && templateId) {
+      fetchTemplate()
+    }
+  }, [user, templateId, fetchTemplate])
 
   const generateLLMPrompt = (): string => {
     if (!template) return ""
@@ -490,7 +512,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                   <CardHeader>
                     <CardTitle>Key Files</CardTitle>
                     <CardDescription>
-                      Files you'll likely need to modify
+                      Files you&apos;ll likely need to modify
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
