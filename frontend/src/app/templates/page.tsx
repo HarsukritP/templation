@@ -100,7 +100,6 @@ export default function TemplatesPage() {
       setIsCreating(true)
       
       // Use the MCP template converter API directly
-      const { api } = await import('../../lib/api')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/template/convert`, {
         method: 'POST',
         headers: {
@@ -122,7 +121,7 @@ export default function TemplatesPage() {
         throw new Error(`Template creation failed: ${response.status} ${response.statusText} - ${errorText}`)
       }
 
-      const result = await response.json()
+      await response.json()
       
       setNotification({
         type: 'success',
