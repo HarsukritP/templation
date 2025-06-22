@@ -194,14 +194,52 @@ await templation.convertRepository({
           <CardContent className="space-y-6">
             <p className="text-lg text-muted-foreground">
               Templation is built on the Model Context Protocol (MCP), making it compatible with 
-              Claude Desktop, VS Code, and other AI assistants.
+              Claude Desktop, Cursor, and other AI assistants.
             </p>
 
             <div className="space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-3 text-blue-900 dark:text-blue-100">
+                  Quick Setup Guide
+                </h3>
+                <ol className="space-y-3 text-sm text-blue-800 dark:text-blue-200">
+                  <li className="flex items-start space-x-2">
+                    <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+                    <div>
+                      <strong>Create an API Key:</strong> Go to your <Link href="/api-keys" className="underline hover:text-blue-600">profile settings</Link> and create a new API key
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">2</span>
+                    <div>
+                      <strong>Copy the Key:</strong> Copy the full API key that appears briefly at the top - this is shown only once! Save it securely
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">3</span>
+                    <div>
+                      <strong>Install Package:</strong> Run the npm install command below to download our latest package
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">4</span>
+                    <div>
+                      <strong>Update Configuration:</strong> Add your API key to your MCP config file (Cursor or Claude Desktop)
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">5</span>
+                    <div>
+                      <strong>Restart:</strong> Close and reopen your editor - Templation functions are now loaded and ready to use!
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
               <div>
                 <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
                   <Download className="h-5 w-5 text-primary" />
-                  <span>Installation</span>
+                  <span>Step 3: Installation</span>
                 </h3>
                 <div className="relative">
                   <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
@@ -221,20 +259,70 @@ await templation.convertRepository({
               <div>
                 <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
                   <Settings className="h-5 w-5 text-primary" />
-                  <span>Configuration</span>
+                  <span>Step 4: Configuration</span>
                 </h3>
-                <div className="relative">
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                    <code>{codeExamples.config}</code>
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyToClipboard(codeExamples.config, 'config')}
-                  >
-                    {copiedCode === 'config' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Replace <code className="bg-muted px-1 py-0.5 rounded">your-copied-api-key-here</code> with the API key you copied in Step 2:
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">For Cursor (~/.cursor-mcp/config.json):</h4>
+                    <div className="relative">
+                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                        <code>{`{
+  "templation": {
+    "command": "mcp-server",
+    "args": ["your-copied-api-key-here"]
+  }
+}`}</code>
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(`{
+  "templation": {
+    "command": "mcp-server",
+    "args": ["your-copied-api-key-here"]
+  }
+}`, 'cursor-config')}
+                      >
+                        {copiedCode === 'cursor-config' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">For Claude Desktop (~/.claude_desktop_config.json):</h4>
+                    <div className="relative">
+                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                        <code>{`{
+  "mcpServers": {
+    "templation": {
+      "command": "mcp-server",
+      "args": ["your-copied-api-key-here"]
+    }
+  }
+}`}</code>
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(`{
+  "mcpServers": {
+    "templation": {
+      "command": "mcp-server",
+      "args": ["your-copied-api-key-here"]
+    }
+  }
+}`, 'claude-config')}
+                      >
+                        {copiedCode === 'claude-config' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
