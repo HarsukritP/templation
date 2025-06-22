@@ -711,7 +711,7 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
     try:
         query = (
             select(TemplateModel, UserModel.name.label('creator_name'))
-            .join(UserModel, TemplateModel.user_id == UserModel.id)
+            .outerjoin(UserModel, TemplateModel.user_id == UserModel.id)
             .where(TemplateModel.is_public == True)
             .order_by(TemplateModel.created_at.desc())
             .offset(offset)
@@ -727,7 +727,7 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
         templates = []
         for row in rows:
             db_template = row[0]
-            creator_name = row[1]
+            creator_name = row[1] if row[1] else "Anonymous"
             
             template = TemplateSchema(
                 id=db_template.id,
@@ -754,7 +754,7 @@ async def search_public_templates(query: str, db: AsyncSession, limit: Optional[
     try:
         search_query = (
             select(TemplateModel, UserModel.name.label('creator_name'))
-            .join(UserModel, TemplateModel.user_id == UserModel.id)
+            .outerjoin(UserModel, TemplateModel.user_id == UserModel.id)
             .where(
                 TemplateModel.is_public == True,
                 (TemplateModel.name.ilike(f"%{query}%")) |
@@ -774,7 +774,7 @@ async def search_public_templates(query: str, db: AsyncSession, limit: Optional[
         templates = []
         for row in rows:
             db_template = row[0]
-            creator_name = row[1]
+            creator_name = row[1] if row[1] else "Anonymous"
             
             template = TemplateSchema(
                 id=db_template.id,
