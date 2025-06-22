@@ -95,10 +95,10 @@ export default function ApiKeysPage() {
     try {
       setIsCreating(true)
       const { api } = await import('../../lib/api')
-      const newKey = await api.createApiKey(
-        newKeyName,
-        newKeyExpiry ? Number(newKeyExpiry) : undefined
-      ) as CreateApiKeyResponse
+      const newKey = await api.createApiKey({
+        name: newKeyName,
+        expires_in_days: newKeyExpiry ? Number(newKeyExpiry) : undefined
+      }) as CreateApiKeyResponse
       
       // Show the new key modal instead of notification
       setNewCreatedKey(newKey)

@@ -127,7 +127,7 @@ export default function AccountPage() {
     try {
       setError(null)
       const { api } = await import('../../lib/api')
-      const newKey = await api.createApiKey(name) as CreateApiKeyResponse
+      const newKey = await api.createApiKey({ name }) as CreateApiKeyResponse
       
       // Show the new key in a notification
       setNotification({

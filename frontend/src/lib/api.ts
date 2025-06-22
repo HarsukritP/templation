@@ -20,6 +20,70 @@ const getApiBaseUrl = () => {
 const API_BASE_URL = getApiBaseUrl();
 console.log('Final API_BASE_URL:', API_BASE_URL);
 
+// Type definitions for API responses
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  source_repo_name: string;
+  source_repo_url: string;
+  tags: string[];
+  is_favorite: boolean;
+  usage_count: number;
+  created_at: string;
+  last_used: string | null;
+  template_data?: Record<string, unknown>;
+}
+
+interface Repository {
+  id: string;
+  repo_name: string;
+  github_url: string;
+  description: string;
+  language: string;
+  stars: number;
+  analysis_status: string;
+  created_at: string;
+  analyzed_at?: string;
+}
+
+interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  usage_count: number;
+  usage_limit: number;
+  last_used?: string;
+  is_active: boolean;
+  created_at: string;
+  expires_at?: string;
+}
+
+interface CreateApiKeyRequest {
+  name: string;
+  expires_in_days?: number;
+}
+
+interface SearchFilters {
+  language?: string;
+  min_stars?: number;
+  max_age_days?: number;
+}
+
+interface UserContext {
+  project_name?: string;
+  preferred_style?: string;
+  additional_features?: string[];
+  target_audience?: string;
+  deployment_preference?: string;
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const errorText = await response.text();
@@ -125,57 +189,86 @@ export class ApiClient {
 // API methods
 export const api = {
   // Health check
-  health: () => ApiClient.get('/health'),
+  health: () => ApiClient.get<{ status: string }>('/health'),
   
   // User endpoints
-  getUser: () => ApiClient.get('/api/users/me'),
-  updateUser: (data: any) => ApiClient.put('/api/users/me', data),
+  getUser: () => ApiClient.get<Record<string, unknown>>('/api/users/me'),
+  updateUser: (data: Record<string, unknown>) => ApiClient.put<Record<string, unknown>>('/api/users/me', data),
+  getDashboardStats: () => ApiClient.get<{
+    total_templates: number;
+    repositories_analyzed: number;
+    recent_activity: number;
+    favorites: number;
+    active_api_keys: number;
+  }>('/api/users/dashboard/stats'),
+  getUserTemplates: (limit?: number) => ApiClient.get<Template[]>(`/api/users/templates${limit ? `?limit=${limit}` : ''}`),
   
   // Template endpoints
-  getTemplates: () => ApiClient.get('/api/templates/'),
-  getTemplate: (id: string) => ApiClient.get(`/api/templates/${id}`),
-  createTemplate: (data: any) => ApiClient.post('/api/templates/', data),
-  updateTemplate: (id: string, data: any) => ApiClient.put(`/api/templates/${id}`, data),
-  deleteTemplate: (id: string) => ApiClient.delete(`/api/templates/${id}`),
+  getTemplates: () => ApiClient.get<Template[]>('/api/templates/'),
+  getTemplate: (id: string) => ApiClient.get<Template>(`/api/templates/${id}`),
+  createTemplate: (data: Partial<Template>) => ApiClient.post<Template>('/api/templates/', data),
+  updateTemplate: (id: string, data: Partial<Template>) => ApiClient.put<Template>(`/api/templates/${id}`, data),
+  deleteTemplate: (id: string) => ApiClient.delete<ApiResponse>(`/api/templates/${id}`),
   
   // Search endpoints
-  searchRepositories: (query: string, filters?: any) => 
-    ApiClient.post('/api/search/', { description: query, filters }),
-  convertRepository: (repoUrl: string, description: string, userContext?: any) => 
-    ApiClient.post('/api/search/template-converter', { 
+  searchRepositories: (query: string, filters?: SearchFilters) => 
+    ApiClient.post<{ repos: unknown[]; total_found: number }>('/api/search/', { description: query, filters }),
+  convertRepository: (repoUrl: string, description: string, userContext?: UserContext) => 
+    ApiClient.post<{ template_id: string; conversion_steps: string[] }>('/api/search/template-converter', { 
       repo_url: repoUrl, 
       template_description: description, 
       user_context: userContext 
     }),
   
   // Repository endpoints
-  getRepositories: () => ApiClient.get('/api/repositories/'),
-  getRepository: (id: string) => ApiClient.get(`/api/repositories/${id}`),
-  analyzeRepository: (data: any) => ApiClient.post('/api/repositories/analyze', data),
-  deleteRepository: (id: string) => ApiClient.delete(`/api/repositories/${id}`),
+  getRepositories: () => ApiClient.get<Repository[]>('/api/repositories/'),
+  getRepository: (id: string) => ApiClient.get<Repository>(`/api/repositories/${id}`),
+  analyzeRepository: (data: { github_url: string; description?: string }) => 
+    ApiClient.post<ApiResponse>('/api/repositories/analyze', data),
+  deleteRepository: (id: string) => ApiClient.delete<ApiResponse>(`/api/repositories/${id}`),
   
   // API Key endpoints
-  getApiKeys: () => ApiClient.get('/api/api-keys/'),
-  createApiKey: (data: any) => ApiClient.post('/api/api-keys/', data),
-  deleteApiKey: (id: string) => ApiClient.delete(`/api/api-keys/${id}`),
+  getApiKeys: () => ApiClient.get<ApiKey[]>('/api/api-keys/'),
+  createApiKey: (data: CreateApiKeyRequest) => ApiClient.post<{ key: string }>('/api/api-keys/', data),
+  deleteApiKey: (id: string) => ApiClient.delete<ApiResponse>(`/api/api-keys/${id}`),
   
   // GitHub integration endpoints
-  getGithubStatus: () => ApiClient.get('/api/users/github/status'),
-  connectGithub: (username: string, accessToken: string) => ApiClient.post('/api/users/github/connect', { github_username: username, access_token: accessToken }),
-  disconnectGithub: () => ApiClient.post('/api/users/github/disconnect'),
+  getGithubStatus: () => ApiClient.get<{ connected: boolean; username?: string }>('/api/users/github/status'),
+  connectGithub: (username: string, accessToken: string) => 
+    ApiClient.post<ApiResponse>('/api/users/github/connect', { github_username: username, access_token: accessToken }),
+  disconnectGithub: () => ApiClient.post<ApiResponse>('/api/users/github/disconnect'),
   
   // Marketplace endpoints
   getMarketplaceTemplates: (limit?: number, search?: string) => 
-    ApiClient.get(`/api/marketplace/?${limit ? `limit=${limit}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
-  getMarketplaceStats: () => ApiClient.get('/api/marketplace/stats'),
-  getMarketplaceTemplate: (id: string) => ApiClient.get(`/api/marketplace/${id}`),
-  toggleTemplatePublic: (id: string) => ApiClient.post(`/api/marketplace/${id}/toggle-public`),
-  useMarketplaceTemplate: (id: string) => ApiClient.post(`/api/marketplace/${id}/use`),
+    ApiClient.get<{
+      templates: {
+        id: string;
+        name: string;
+        description: string;
+        source_repo_url: string;
+        tech_stack: string[];
+        creator_name: string;
+        created_at: string;
+        usage_count: number;
+      }[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/api/marketplace/?${limit ? `limit=${limit}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
+  getMarketplaceStats: () => ApiClient.get<{
+    total_public_templates: number;
+    unique_creators: number;
+    available_tech_stacks: string[];
+    total_tech_stacks: number;
+  }>('/api/marketplace/stats'),
+  getMarketplaceTemplate: (id: string) => ApiClient.get<Template>(`/api/marketplace/${id}`),
+  toggleTemplatePublic: (id: string) => ApiClient.post<{ is_public: boolean }>(`/api/marketplace/${id}/toggle-public`),
+  useMarketplaceTemplate: (id: string) => ApiClient.post<Template>(`/api/marketplace/${id}/use`),
 
   // GitHub OAuth endpoints (public)
   getGithubOAuthStatus: async () => {
     try {
-      const response = await ApiClient.get('/api/auth/github/status')
+      const response = await ApiClient.get<{ configured: boolean; client_id?: string }>('/api/auth/github/status')
       return response
     } catch (error) {
       console.error('Error fetching OAuth status:', error)
