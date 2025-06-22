@@ -5,37 +5,133 @@ import hashlib
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import re
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.models.schemas import RepoResult, RepoMetrics, SearchFilters
+from app.models.database import Repository as RepositoryModel
+from app.db.redis_client import get_json, set_json, delete_key
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_API_BASE = "https://api.github.com"
 
-# Simple in-memory cache for GitHub API responses
-_cache = {}
-CACHE_TTL = 300  # 5 minutes
+# Redis cache TTL settings
+SEARCH_CACHE_TTL = 600  # 10 minutes for search results
+REPO_CACHE_TTL = 3600   # 1 hour for individual repo details
+STRUCTURE_CACHE_TTL = 1800  # 30 minutes for repo structure
 
 def _get_cache_key(url: str, params: Dict[str, Any] = None) -> str:
     """Generate cache key for request"""
     key_data = f"{url}:{str(params or {})}"
-    return hashlib.md5(key_data.encode()).hexdigest()
+    return f"github:{hashlib.md5(key_data.encode()).hexdigest()}"
 
-def _get_cached(key: str) -> Optional[Any]:
-    """Get cached response if still valid"""
-    if key in _cache:
-        data, timestamp = _cache[key]
-        if datetime.now().timestamp() - timestamp < CACHE_TTL:
-            return data
+async def _get_cached(key: str) -> Optional[Any]:
+    """Get cached response from Redis"""
+    try:
+        return await get_json(key)
+    except Exception as e:
+        print(f"Cache get error: {e}")
+        return None
+
+async def _set_cache(key: str, data: Any, ttl: int = SEARCH_CACHE_TTL) -> bool:
+    """Cache response in Redis with TTL"""
+    try:
+        return await set_json(key, data, expire=ttl)
+    except Exception as e:
+        print(f"Cache set error: {e}")
+        return False
+
+async def save_repository_to_db(repo_data: Dict[str, Any], user_id: str, db: AsyncSession) -> Optional[RepositoryModel]:
+    """Save repository data to database for persistence"""
+    try:
+        repo_url = repo_data.get("html_url", "")
+        repo_name = repo_data.get("full_name", "")
+        
+        if not repo_url or not repo_name:
+            return None
+        
+        # Check if repository already exists for this user
+        result = await db.execute(
+            select(RepositoryModel).where(
+                RepositoryModel.user_id == user_id,
+                RepositoryModel.github_url == repo_url
+            )
+        )
+        existing_repo = result.scalar_one_or_none()
+        
+        if existing_repo:
+            # Update existing repository
+            existing_repo.description = repo_data.get("description", "")
+            existing_repo.language = repo_data.get("language", "")
+            existing_repo.stars = repo_data.get("stargazers_count", 0)
+            existing_repo.analysis_data = repo_data
+            existing_repo.updated_at = datetime.utcnow()
+            await db.commit()
+            return existing_repo
         else:
-            del _cache[key]
-    return None
+            # Create new repository record
+            new_repo = RepositoryModel(
+                user_id=user_id,
+                github_url=repo_url,
+                repo_name=repo_name,
+                description=repo_data.get("description", ""),
+                language=repo_data.get("language", ""),
+                stars=repo_data.get("stargazers_count", 0),
+                analysis_status="completed",
+                analysis_data=repo_data,
+                analyzed_at=datetime.utcnow()
+            )
+            db.add(new_repo)
+            await db.commit()
+            await db.refresh(new_repo)
+            return new_repo
+    except Exception as e:
+        print(f"Error saving repository to DB: {e}")
+        return None
 
-def _set_cache(key: str, data: Any):
-    """Cache response with timestamp"""
-    _cache[key] = (data, datetime.now().timestamp())
+async def get_cached_repositories_for_user(user_id: str, db: AsyncSession) -> List[Dict[str, Any]]:
+    """Get previously searched/analyzed repositories for a user from database"""
+    try:
+        # First try to get from Redis if available
+        redis_key = f"user_repos:{user_id}"
+        cached_repos = await _get_cached(redis_key)
+        
+        if cached_repos:
+            print(f"✅ Retrieved {len(cached_repos)} repositories from Redis cache")
+            return cached_repos
+        
+        # Fallback to database
+        result = await db.execute(
+            select(RepositoryModel)
+            .where(RepositoryModel.user_id == user_id)
+            .order_by(RepositoryModel.updated_at.desc())
+            .limit(50)  # Return last 50 repositories
+        )
+        repositories = result.scalars().all()
+        
+        repo_list = []
+        for repo in repositories:
+            if repo.analysis_data:  # type: ignore
+                # Add database metadata to the repo data
+                repo_data = dict(repo.analysis_data)  # type: ignore
+                repo_data['analyzed_at'] = repo.analyzed_at.isoformat() if getattr(repo, 'analyzed_at', None) else None  # type: ignore
+                repo_data['db_created_at'] = repo.created_at.isoformat() if getattr(repo, 'created_at', None) else None  # type: ignore
+                repo_list.append(repo_data)
+        
+        # Cache in Redis if available (for 10 minutes)
+        if repo_list:
+            await _set_cache(redis_key, repo_list, 600)
+            print(f"💾 Retrieved {len(repo_list)} repositories from database and cached in Redis")
+        else:
+            print("📂 No repositories found in database")
+        
+        return repo_list
+    except Exception as e:
+        print(f"Error getting cached repositories: {e}")
+        return []
 
-async def search_github_repos_simple(description: str, filters: Optional[SearchFilters] = None) -> List[RepoResult]:
-    """Simplified GitHub repository search that doesn't make excessive API calls"""
+async def search_github_repos_simple(description: str, filters: Optional[SearchFilters] = None, user_id: Optional[str] = None, db: Optional[AsyncSession] = None) -> List[RepoResult]:
+    """Simplified GitHub repository search with Redis caching and database persistence"""
     try:
         # Build comprehensive search query
         query_parts = [description]
@@ -58,10 +154,13 @@ async def search_github_repos_simple(description: str, filters: Optional[SearchF
         search_query = " ".join(query_parts)
         cache_key = _get_cache_key(f"{GITHUB_API_BASE}/search/repositories", {"q": search_query})
         
-        # Check cache first
-        cached_result = _get_cached(cache_key)
+        # Check Redis cache first (if available)
+        cached_result = await _get_cached(cache_key)
         if cached_result:
-            return cached_result
+            print(f"✅ Redis cache hit for search: {description}")
+            return [RepoResult(**repo) for repo in cached_result]
+        
+        print(f"🔍 Searching GitHub for: {description}")
         
         headers = {
             "Accept": "application/vnd.github.v3+json",
@@ -78,13 +177,12 @@ async def search_github_repos_simple(description: str, filters: Optional[SearchF
                     "q": search_query,
                     "sort": "stars",
                     "order": "desc",
-                    "per_page": 10  # Reduced from 15
+                    "per_page": 10
                 },
                 headers=headers
             )
             
             if response.status_code == 403:
-                # Rate limit exceeded
                 raise Exception("GitHub API rate limit exceeded. Please try again later.")
             elif response.status_code != 200:
                 raise Exception(f"GitHub API error: {response.status_code} - {response.text}")
@@ -98,14 +196,28 @@ async def search_github_repos_simple(description: str, filters: Optional[SearchF
                     repo = process_repository_item_simple(item)
                     if repo:
                         repos.append(repo)
+                        
+                        # Always save to database if user_id and db are provided
+                        # This ensures persistence even when Redis is not available
+                        if user_id and db:
+                            saved_repo = await save_repository_to_db(item, user_id, db)
+                            if saved_repo:
+                                print(f"💾 Saved repository to DB: {item.get('full_name', 'unknown')}")
+                            
                 except Exception as e:
                     print(f"Error processing repository {item.get('full_name', 'unknown')}: {e}")
                     continue
             
-            # Cache the results
-            _set_cache(cache_key, repos)
+            # Cache the results in Redis (if available)
+            repo_dicts = [repo.dict() for repo in repos]
+            cache_success = await _set_cache(cache_key, repo_dicts, SEARCH_CACHE_TTL)
             
-            return repos[:10]  # Return top 10 results
+            if cache_success:
+                print(f"✅ Cached {len(repos)} repositories in Redis for search: {description}")
+            else:
+                print(f"⚠️ Redis not available - repositories saved to database only")
+            
+            return repos[:10]
     
     except Exception as e:
         raise Exception(f"GitHub search failed: {str(e)}")
@@ -266,7 +378,7 @@ async def get_enhanced_repo_details(full_name: str, client: httpx.AsyncClient, h
     """Get enhanced repository details including README and languages"""
     try:
         cache_key = _get_cache_key(f"repo_details:{full_name}")
-        cached = _get_cached(cache_key)
+        cached = await _get_cached(cache_key)
         if cached:
             return cached
         
@@ -304,7 +416,7 @@ async def get_enhanced_repo_details(full_name: str, client: httpx.AsyncClient, h
         except:
             repo_data["readme"] = None
         
-        _set_cache(cache_key, repo_data)
+        await _set_cache(cache_key, repo_data, REPO_CACHE_TTL)
         return repo_data
     
     except Exception as e:
@@ -647,7 +759,7 @@ async def get_repo_details(repo_url: str) -> Dict[str, Any]:
         owner, repo = match.groups()
         
         cache_key = _get_cache_key(f"repo_details_v2:{owner}/{repo}")
-        cached = _get_cached(cache_key)
+        cached = await _get_cached(cache_key)
         if cached:
             return cached
         
@@ -673,7 +785,7 @@ async def get_repo_details(repo_url: str) -> Dict[str, Any]:
                 raise Exception(f"GitHub API error: {response.status_code}")
             
             repo_data = response.json()
-            _set_cache(cache_key, repo_data)
+            await _set_cache(cache_key, repo_data, REPO_CACHE_TTL)
             return repo_data
     
     except Exception as e:
@@ -690,7 +802,7 @@ async def get_repo_structure(repo_url: str) -> List[Dict[str, Any]]:
         owner, repo = match.groups()
         
         cache_key = _get_cache_key(f"repo_structure:{owner}/{repo}")
-        cached = _get_cached(cache_key)
+        cached = await _get_cached(cache_key)
         if cached:
             return cached
         
@@ -716,7 +828,7 @@ async def get_repo_structure(repo_url: str) -> List[Dict[str, Any]]:
                 raise Exception(f"GitHub API error: {response.status_code}")
             
             structure = response.json()
-            _set_cache(cache_key, structure)
+            await _set_cache(cache_key, structure, STRUCTURE_CACHE_TTL)
             return structure
     
     except Exception as e:

@@ -121,7 +121,7 @@ async def search_templates_mcp(
                 "tech_stack": template.tech_stack or [],
                 "tags": template.tech_stack or [],  # For backward compatibility
                 "screenshot_url": None,  # Column doesn't exist yet
-                "is_favorite": template.is_favorite,
+                "is_favorite": getattr(template, 'is_favorite', False),
                 "usage_count": getattr(template, 'usage_count', 0),
                 "last_used": template.last_used.isoformat() if getattr(template, 'last_used', None) else None,
                 "created_at": template.created_at.isoformat() if template.created_at else None
@@ -133,12 +133,47 @@ async def search_templates_mcp(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search templates: {str(e)}")
 
+@router.get("/repositories/recent")
+async def get_recent_repositories_mcp(
+    limit: int = Query(20, description="Maximum number of repositories", ge=1, le=50),
+    current_user: User = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_database)
+):
+    """Get recently searched/cached repositories for MCP server"""
+    try:
+        # Get cached repositories from database
+        cached_repos = await github_service.get_cached_repositories_for_user(current_user.id, db)  # type: ignore
+        
+        # Format results for MCP
+        formatted_repos = []
+        for repo_data in cached_repos[:limit]:
+            formatted_repos.append({
+                "name": repo_data.get("full_name", "Unknown"),
+                "url": repo_data.get("html_url", ""),
+                "description": repo_data.get("description", ""),
+                "language": repo_data.get("language", ""),
+                "stars": repo_data.get("stargazers_count", 0),
+                "forks": repo_data.get("forks_count", 0),
+                "updated": repo_data.get("updated_at", ""),
+                "topics": repo_data.get("topics", []),
+                "cached_at": repo_data.get("analyzed_at", "")
+            })
+        
+        return {
+            "repositories": formatted_repos,
+            "total_found": len(formatted_repos),
+            "message": f"Found {len(formatted_repos)} recently searched repositories"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get recent repositories: {str(e)}")
+
 @router.post("/search/exemplar")
 async def search_exemplar_mcp(
     request: Dict[str, Any],
-    current_user: User = Depends(get_current_user_from_api_key)
+    current_user: User = Depends(get_current_user_from_api_key),
+    db: AsyncSession = Depends(get_database)
 ):
-    """Search GitHub repositories for inspiration with enhanced filtering"""
+    """Search GitHub repositories for inspiration with enhanced filtering and caching"""
     try:
         description = request.get("description")
         filters_data = request.get("filters", {})
@@ -155,8 +190,13 @@ async def search_exemplar_mcp(
             max_age_days=filters_data.get("max_age_days")
         )
         
-        # Search repositories with enhanced service
-        repos = await github_service.search_github_repos(description.strip(), filters)
+        # Search repositories with enhanced service (now with Redis caching and DB persistence)
+        repos = await github_service.search_github_repos_simple(
+            description.strip(), 
+            filters, 
+            user_id=current_user.id,  # type: ignore
+            db=db
+        )
         
         # Format results for MCP
         formatted_repos = []

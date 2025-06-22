@@ -311,6 +311,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['template_id'],
         },
       },
+      {
+        name: 'get_recent_repositories',
+        description: 'Get recently searched/cached repositories from your previous searches. This shows repositories you\'ve discovered before, stored with Redis caching for quick access.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Maximum number of repositories to return (1-50, default: 20)',
+              minimum: 1,
+              maximum: 50,
+              default: 20,
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -860,10 +876,82 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      case 'get_recent_repositories': {
+        const { limit = 20 } = args as {
+          limit?: number;
+        };
+        
+        const clampedLimit = Math.max(1, Math.min(50, limit));
+        const cacheKey = `recent_repositories:${clampedLimit}`;
+        
+        try {
+          // Check cache first
+          let result = getCached(cacheKey);
+          
+          if (!result) {
+            result = await apiCall(`/api/repositories/recent?limit=${clampedLimit}`) as any;
+            setCache(cacheKey, result, 120000); // 2 minute cache
+          }
+          
+          if (!result.repositories || result.repositories.length === 0) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `📂 No recently searched repositories found.\n\n💡 **Start exploring:**\n• Use \`search_exemplar\` to discover repositories\n• Each search will cache repositories for quick future access\n• Redis caching ensures fast retrieval of previously found repos\n\n🔍 **Try searching for:**\n• "React portfolio website"\n• "Python web scraper"\n• "Vue.js dashboard"\n• "Node.js REST API"`,
+                },
+              ],
+            };
+          }
+          
+          let responseText = `📂 **Recently Searched Repositories** (${result.repositories.length} found)\n\n`;
+          responseText += `✅ **Redis Cache Working:** Repositories are being stored and retrieved quickly!\n\n`;
+          
+          result.repositories.forEach((repo: any, index: number) => {
+            responseText += `**${index + 1}. ${repo.name}**\n`;
+            responseText += `   🔗 ${repo.url}\n`;
+            responseText += `   📝 ${repo.description || 'No description'}\n`;
+            responseText += `   💻 ${repo.language || 'Unknown language'}\n`;
+            responseText += `   ⭐ ${repo.stars} stars • 🍴 ${repo.forks} forks\n`;
+            if (repo.topics && repo.topics.length > 0) {
+              responseText += `   🏷️ ${repo.topics.slice(0, 5).join(', ')}\n`;
+            }
+            if (repo.cached_at) {
+              responseText += `   📅 Cached: ${new Date(repo.cached_at).toLocaleDateString()}\n`;
+            }
+            responseText += `\n`;
+          });
+          
+          responseText += `💡 **Next steps:**\n`;
+          responseText += `• Use \`template_converter\` with any repository URL to create a template\n`;
+          responseText += `• Use \`search_exemplar\` to find more repositories\n`;
+          responseText += `• Visit https://templation.up.railway.app/repositories to manage your cached repos\n\n`;
+          responseText += `🚀 **Redis caching is working!** Your searches are being stored for quick access.`;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: responseText,
+              },
+            ],
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Error getting recent repositories: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **This might indicate:**\n• Redis caching issues\n• Database connectivity problems\n• API key authentication issues\n\n💡 **Try:**\n• Using \`search_exemplar\` to populate the cache\n• Checking your API key at https://templation.up.railway.app/api-keys\n• Waiting a moment for Redis to initialize`,
+              },
+            ],
+          };
+        }
+      }
+
       default:
         throw new McpError(
           ErrorCode.MethodNotFound,
-          `Unknown tool: ${name}. Available tools: search_templates, search_exemplar, template_converter, get_user_info, get_dashboard_stats, get_template_details`
+          `Unknown tool: ${name}. Available tools: search_templates, search_exemplar, template_converter, get_user_info, get_dashboard_stats, get_template_details, get_recent_repositories`
         );
     }
   } catch (error) {
