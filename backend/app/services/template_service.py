@@ -77,7 +77,6 @@ async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateS
 async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int] = None) -> List[TemplateSchema]:
     """Get all templates for a user with optional limit"""
     try:
-        print(f"🔍 DEBUG: Querying templates for user_id: {user_id}")
         query = select(TemplateModel).where(TemplateModel.user_id == user_id).order_by(TemplateModel.created_at.desc())
         
         if limit:
@@ -86,16 +85,10 @@ async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int
         result = await db.execute(query)
         db_templates = result.scalars().all()
         
-        print(f"📊 DEBUG: Found {len(db_templates)} templates in database for user {user_id}")
-        for template in db_templates:
-            print(f"  - Template: {template.id} | {template.name} | user_id: {template.user_id}")
-        
         # Convert to Pydantic models using helper function
-        templates = [_convert_db_template_to_schema(db_template) for db_template in db_templates]
-        print(f"✅ DEBUG: Returning {len(templates)} converted templates")
-        return templates
+        return [_convert_db_template_to_schema(db_template) for db_template in db_templates]
     except Exception as e:
-        print(f"❌ DEBUG: Error getting user templates for {user_id}: {e}")
+        print(f"Error getting user templates for {user_id}: {e}")
         return []
 
 async def update_template(template_id: str, update_data: TemplateUpdate, db: AsyncSession) -> Optional[TemplateSchema]:

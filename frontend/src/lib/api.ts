@@ -207,9 +207,9 @@ export const api = {
   getUserTemplates: (limit?: number) => ApiClient.get<Template[]>(`/api/users/templates${limit ? `?limit=${limit}` : ''}`),
   
   // Template endpoints
-  getTemplates: () => ApiClient.get<Template[]>('/api/templates/'),
+  getTemplates: () => ApiClient.get<Template[]>('/api/templates'),
   getTemplate: (id: string) => ApiClient.get<Template>(`/api/templates/${id}`),
-  createTemplate: (data: Partial<Template>) => ApiClient.post<Template>('/api/templates/', data),
+  createTemplate: (data: Partial<Template>) => ApiClient.post<Template>('/api/templates', data),
   updateTemplate: (id: string, data: Partial<Template>) => ApiClient.put<Template>(`/api/templates/${id}`, data),
   deleteTemplate: (id: string) => ApiClient.delete<ApiResponse>(`/api/templates/${id}`),
   
