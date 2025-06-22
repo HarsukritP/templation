@@ -11,9 +11,9 @@ export function Navbar() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 pt-4 px-4">
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
-        {/* Central Navigation */}
-        <div className="flex-1 flex justify-center">
+      <div className="relative max-w-7xl mx-auto">
+        {/* Central Navigation - Absolutely centered */}
+        <div className="flex justify-center">
           <nav className="bg-background/80 backdrop-blur-md border border-border/50 rounded-full shadow-lg px-6 py-3">
             <div className="flex items-center space-x-8">
               {/* Logo */}
@@ -46,6 +46,12 @@ export function Navbar() {
                     >
                       Templates
                     </Link>
+                    <Link
+                      href="/marketplace"
+                      className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors"
+                    >
+                      Marketplace
+                    </Link>
                   </>
                 )}
                 <Link
@@ -59,8 +65,8 @@ export function Navbar() {
           </nav>
         </div>
 
-        {/* Auth Section - Right Side */}
-        <div className="flex items-center pr-4">
+        {/* Auth Section - Absolute positioned to right */}
+        <div className="absolute top-0 right-4 flex items-center">
           <div className="bg-background/80 backdrop-blur-md border border-border/50 rounded-full shadow-lg px-4 py-2">
             {isLoading ? (
               <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
