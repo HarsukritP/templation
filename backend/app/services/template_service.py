@@ -34,8 +34,7 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
         source_repo_name=repo_name,
         template_data=template_data.template_data or {},
         screenshot_url=template_data.screenshot_url,
-        tech_stack=template_data.tech_stack or [],
-        tags=template_data.tech_stack or [],  # Keep both for compatibility
+        tags=template_data.tech_stack or [],  # Store tech_stack in tags for now
     )
     
     # Store in database
@@ -52,7 +51,7 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
         source_repo_url=db_template.source_repo_url,
         template_data=db_template.template_data,
         screenshot_url=db_template.screenshot_url,
-        tech_stack=db_template.tech_stack or [],
+        tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
         created_at=db_template.created_at,
         last_used=db_template.last_used
     )
@@ -76,7 +75,7 @@ async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateS
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
             screenshot_url=db_template.screenshot_url,
-            tech_stack=db_template.tech_stack or [],
+            tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
             created_at=db_template.created_at,
             last_used=db_template.last_used
         )
@@ -106,7 +105,7 @@ async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int
                 source_repo_url=db_template.source_repo_url,
                 template_data=db_template.template_data,
                 screenshot_url=db_template.screenshot_url,
-                tech_stack=db_template.tech_stack or [],
+                tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             ))
@@ -134,8 +133,7 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
         if update_data.description is not None:
             db_template.description = update_data.description
         if update_data.tech_stack is not None:
-            db_template.tech_stack = update_data.tech_stack
-            db_template.tags = update_data.tech_stack  # Keep both for compatibility
+            db_template.tags = update_data.tech_stack  # Store tech_stack in tags for now
         if hasattr(update_data, 'is_favorite') and update_data.is_favorite is not None:
             db_template.is_favorite = update_data.is_favorite
         if hasattr(update_data, 'usage_count') and update_data.usage_count is not None:
@@ -158,7 +156,7 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
             screenshot_url=db_template.screenshot_url,
-            tech_stack=db_template.tech_stack or [],
+            tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
             created_at=db_template.created_at,
             last_used=db_template.last_used
         )
