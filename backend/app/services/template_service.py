@@ -50,6 +50,7 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
         source_repo_url=db_template.source_repo_url,
         template_data=db_template.template_data,
         tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
+        is_public=getattr(db_template, 'is_public', False),
         created_at=db_template.created_at,
         last_used=db_template.last_used
     )
@@ -73,6 +74,7 @@ async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateS
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
             tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
+            is_public=getattr(db_template, 'is_public', False),
             created_at=db_template.created_at,
             last_used=db_template.last_used
         )
@@ -102,6 +104,7 @@ async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int
                 source_repo_url=db_template.source_repo_url,
                 template_data=db_template.template_data,
                 tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
+                is_public=getattr(db_template, 'is_public', False),
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             ))
@@ -154,6 +157,7 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
             tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
+            is_public=getattr(db_template, 'is_public', False),
             created_at=db_template.created_at,
             last_used=db_template.last_used
         )
@@ -737,6 +741,7 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
                 source_repo_url=db_template.source_repo_url,
                 template_data=db_template.template_data,
                 tech_stack=db_template.tags or [],
+                is_public=getattr(db_template, 'is_public', False),
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             )
@@ -784,6 +789,7 @@ async def search_public_templates(query: str, db: AsyncSession, limit: Optional[
                 source_repo_url=db_template.source_repo_url,
                 template_data=db_template.template_data,
                 tech_stack=db_template.tags or [],
+                is_public=getattr(db_template, 'is_public', False),
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             )

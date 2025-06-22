@@ -28,6 +28,7 @@ class Template(BaseModel):
     template_data: Dict[str, Any]
     screenshot_url: Optional[str] = None
     tech_stack: List[str] = []
+    is_public: bool = False
     created_at: datetime
     last_used: Optional[datetime] = None
 
