@@ -13,6 +13,7 @@ from app.models.schemas import (
 )
 from app.models.database import Template as TemplateModel, User as UserModel
 from app.db.database import get_database
+from app.db.redis_client import delete_key, get_list, set_json, get_json
 from app.services.github_service import get_repo_details, get_repo_structure
 
 async def create_template(template_data: TemplateCreate, user_id: str, db: AsyncSession) -> TemplateSchema:

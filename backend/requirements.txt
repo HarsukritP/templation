@@ -27,6 +27,6 @@ typing-inspection==0.4.1
 typing_extensions==4.14.0
 uvicorn==0.34.3
 # Database dependencies
-sqlalchemy==2.0.23
-asyncpg==0.29.0
+sqlalchemy==2.0.36
+asyncpg==0.30.0
 alembic==1.13.1
