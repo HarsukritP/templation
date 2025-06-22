@@ -18,7 +18,7 @@ router = APIRouter()
 @router.post("/templates", response_model=APIResponse)
 async def create_user_template(
     template_data: TemplateCreate,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Create a new template"""
@@ -29,7 +29,6 @@ async def create_user_template(
             message="Template created successfully",
             data=template.dict()
         )
-    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -38,14 +37,13 @@ async def create_user_template(
 
 @router.get("/templates", response_model=List[Template])
 async def get_templates(
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Get all templates for current user"""
     try:
         templates = await get_user_templates(current_user.id, db)
         return templates
-    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -55,7 +53,7 @@ async def get_templates(
 @router.get("/templates/{template_id}", response_model=Template)
 async def get_template_endpoint(
     template_id: str,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Get a specific template by ID"""
@@ -75,7 +73,6 @@ async def get_template_endpoint(
             )
             
         return template
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -88,7 +85,7 @@ async def get_template_endpoint(
 async def update_user_template(
     template_id: str,
     template_data: TemplateUpdate,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Update a template"""
@@ -119,7 +116,6 @@ async def update_user_template(
             message="Template updated successfully",
             data=template.dict()
         )
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -131,7 +127,7 @@ async def update_user_template(
 @router.delete("/templates/{template_id}", response_model=APIResponse)
 async def delete_user_template(
     template_id: str,
-    current_user = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_database)
 ):
     """Delete a template"""
@@ -150,7 +146,7 @@ async def delete_user_template(
                 detail="Access denied"
             )
         
-        success = await delete_template(template_id, current_user.id)
+        success = await delete_template(template_id, current_user.id, db)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -161,7 +157,6 @@ async def delete_user_template(
             success=True,
             message="Template deleted successfully"
         )
-    
     except HTTPException:
         raise
     except Exception as e:
