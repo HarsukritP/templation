@@ -266,6 +266,61 @@ async def reset_github_connections():
             "message": "Failed to reset GitHub connections"
         }
 
+@app.get("/debug/templates")
+async def list_all_templates():
+    """Debug endpoint to see all templates in the database"""
+    try:
+        # Get database URL
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            return {"error": "DATABASE_URL not configured", "success": False}
+        
+        # Convert to async URL
+        async_url = get_async_database_url(database_url)
+        
+        # Create async engine
+        engine = create_async_engine(async_url)
+        
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            # Get all templates with user info
+            result = await conn.execute(text("""
+                SELECT 
+                    t.id, 
+                    t.name, 
+                    t.user_id, 
+                    u.auth0_id, 
+                    u.email,
+                    t.created_at
+                FROM templates t 
+                JOIN users u ON t.user_id = u.id
+                ORDER BY t.created_at DESC
+            """))
+            
+            templates = []
+            for row in result.fetchall():
+                templates.append({
+                    "template_id": row[0],
+                    "template_name": row[1],
+                    "user_id": row[2],
+                    "auth0_id": row[3],
+                    "user_email": row[4],
+                    "created_at": str(row[5]) if row[5] else None
+                })
+            
+            return {
+                "success": True,
+                "templates": templates,
+                "total_templates": len(templates)
+            }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to list templates"
+        }
+
 @app.get("/debug/users")
 async def list_users():
     """Debug endpoint to see what users exist in the database"""
