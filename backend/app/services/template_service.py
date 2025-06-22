@@ -713,9 +713,9 @@ def extract_repo_name_from_url(url: str) -> str:
 async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offset: int = 0) -> List[TemplateSchema]:
     """Get all public templates for the marketplace"""
     try:
+        # Simplified query without JOIN for debugging
         query = (
-            select(TemplateModel, UserModel.name.label('creator_name'))
-            .outerjoin(UserModel, TemplateModel.user_id == UserModel.id)
+            select(TemplateModel)
             .where(TemplateModel.is_public == True)
             .order_by(TemplateModel.created_at.desc())
             .offset(offset)
@@ -725,14 +725,11 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
             query = query.limit(limit)
             
         result = await db.execute(query)
-        rows = result.all()
+        db_templates = result.scalars().all()
         
-        # Convert to Pydantic models with creator info
+        # Convert to Pydantic models
         templates = []
-        for row in rows:
-            db_template = row[0]
-            creator_name = row[1] if row[1] else "Anonymous"
-            
+        for db_template in db_templates:
             template = TemplateSchema(
                 id=db_template.id,
                 user_id=db_template.user_id,
@@ -745,8 +742,8 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             )
-            # Add creator name as metadata
-            template.creator_name = creator_name
+            # Add creator name as metadata (simplified for now)
+            template.creator_name = "Community Contributor"
             templates.append(template)
         
         return templates
