@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import os
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, and_, or_, func, desc
 
 from app.models.schemas import (
     Template as TemplateSchema, TemplateCreate, TemplateUpdate, 
@@ -16,25 +16,38 @@ from app.db.database import get_database
 from app.db.redis_client import delete_key, get_list, set_json, get_json
 from app.services.github_service import get_repo_details, get_repo_structure
 
+def _convert_db_template_to_schema(db_template: TemplateModel) -> TemplateSchema:
+    """Helper function to convert database template to Pydantic schema"""
+    return TemplateSchema(
+        id=db_template.id,  # type: ignore
+        user_id=db_template.user_id,  # type: ignore
+        name=db_template.name,  # type: ignore
+        description=db_template.description or "",  # type: ignore
+        source_repo_url=db_template.source_repo_url,  # type: ignore
+        template_data=db_template.template_data or {},  # type: ignore
+        tech_stack=db_template.tags or [],  # type: ignore
+        is_public=getattr(db_template, 'is_public', False),
+        created_at=db_template.created_at,  # type: ignore
+        last_used=db_template.last_used  # type: ignore
+    )
+
 async def create_template(template_data: TemplateCreate, user_id: str, db: AsyncSession) -> TemplateSchema:
-    """Create a new template with enhanced validation"""
-    
-    # Validate required fields
-    if not template_data.name or not template_data.source_repo_url:
-        raise ValueError("Template name and source repository URL are required")
-    
-    # Extract repo name from URL
-    repo_name = extract_repo_name_from_url(template_data.source_repo_url)
-    
+    """Create a new template in the database"""
     # Create database model
     db_template = TemplateModel(
+        id=str(uuid.uuid4()),
         user_id=user_id,
         name=template_data.name,
         description=template_data.description,
         source_repo_url=template_data.source_repo_url,
-        source_repo_name=repo_name,
-        template_data=template_data.template_data or {},
-        tags=template_data.tech_stack or [],  # Store tech_stack in tags for now
+        source_repo_name=extract_repo_name_from_url(template_data.source_repo_url),
+        template_data=template_data.template_data,
+        tags=getattr(template_data, 'tech_stack', []),
+        is_public=getattr(template_data, 'is_public', False),
+        is_favorite=False,
+        usage_count=0,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow()
     )
     
     # Store in database
@@ -42,19 +55,8 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
     await db.commit()
     await db.refresh(db_template)
     
-    # Convert to Pydantic model
-    return TemplateSchema(
-        id=db_template.id,
-        user_id=db_template.user_id,
-        name=db_template.name,
-        description=db_template.description,
-        source_repo_url=db_template.source_repo_url,
-        template_data=db_template.template_data,
-        tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
-        is_public=getattr(db_template, 'is_public', False),
-        created_at=db_template.created_at,
-        last_used=db_template.last_used
-    )
+    # Convert to Pydantic model using helper function
+    return _convert_db_template_to_schema(db_template)
 
 async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateSchema]:
     """Get a template by ID with error handling"""
@@ -67,18 +69,7 @@ async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateS
         if not db_template:
             return None
             
-        return TemplateSchema(
-            id=db_template.id,
-            user_id=db_template.user_id,
-            name=db_template.name,
-            description=db_template.description,
-            source_repo_url=db_template.source_repo_url,
-            template_data=db_template.template_data,
-            tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
-            is_public=getattr(db_template, 'is_public', False),
-            created_at=db_template.created_at,
-            last_used=db_template.last_used
-        )
+        return _convert_db_template_to_schema(db_template)
     except Exception as e:
         print(f"Error getting template {template_id}: {e}")
         return None
@@ -94,23 +85,8 @@ async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int
         result = await db.execute(query)
         db_templates = result.scalars().all()
         
-        # Convert to Pydantic models
-        templates = []
-        for db_template in db_templates:
-            templates.append(TemplateSchema(
-                id=db_template.id,
-                user_id=db_template.user_id,
-                name=db_template.name,
-                description=db_template.description,
-                source_repo_url=db_template.source_repo_url,
-                template_data=db_template.template_data,
-                tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
-                is_public=getattr(db_template, 'is_public', False),
-                created_at=db_template.created_at,
-                last_used=db_template.last_used
-            ))
-        
-        return templates
+        # Convert to Pydantic models using helper function
+        return [_convert_db_template_to_schema(db_template) for db_template in db_templates]
     except Exception as e:
         print(f"Error getting user templates for {user_id}: {e}")
         return []
@@ -127,41 +103,30 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
         if not db_template:
             return None
         
-        # Update fields
+        # Update fields using proper attribute assignment
         if update_data.name is not None:
-            db_template.name = update_data.name
+            db_template.name = update_data.name  # type: ignore
         if update_data.description is not None:
-            db_template.description = update_data.description
+            db_template.description = update_data.description  # type: ignore
         if update_data.tech_stack is not None:
-            db_template.tags = update_data.tech_stack  # Store tech_stack in tags for now
+            db_template.tags = update_data.tech_stack  # type: ignore
         if hasattr(update_data, 'is_favorite') and update_data.is_favorite is not None:
-            db_template.is_favorite = update_data.is_favorite
+            db_template.is_favorite = update_data.is_favorite  # type: ignore
         if hasattr(update_data, 'usage_count') and update_data.usage_count is not None:
-            db_template.usage_count = update_data.usage_count
+            db_template.usage_count = update_data.usage_count  # type: ignore
         if hasattr(update_data, 'last_used') and update_data.last_used is not None:
-            db_template.last_used = update_data.last_used
+            db_template.last_used = update_data.last_used  # type: ignore
         if hasattr(update_data, 'is_public') and update_data.is_public is not None:
-            db_template.is_public = update_data.is_public
+            db_template.is_public = update_data.is_public  # type: ignore
         
-        db_template.updated_at = datetime.utcnow()
+        db_template.updated_at = datetime.utcnow()  # type: ignore
         
         # Commit changes
         await db.commit()
         await db.refresh(db_template)
         
-        # Return updated template as Pydantic model
-        return TemplateSchema(
-            id=db_template.id,
-            user_id=db_template.user_id,
-            name=db_template.name,
-            description=db_template.description,
-            source_repo_url=db_template.source_repo_url,
-            template_data=db_template.template_data,
-            tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
-            is_public=getattr(db_template, 'is_public', False),
-            created_at=db_template.created_at,
-            last_used=db_template.last_used
-        )
+        # Return updated template using helper function
+        return _convert_db_template_to_schema(db_template)
     except Exception as e:
         print(f"Error updating template {template_id}: {e}")
         return None
@@ -720,12 +685,12 @@ async def get_user_stats(user_id: str, db: AsyncSession) -> Dict[str, Any]:
         
         # Calculate stats
         total_templates = len(templates)
-        favorites = len([t for t in templates if t.is_favorite])
+        favorites = len([t for t in templates if getattr(t, 'is_favorite', False)])  # type: ignore
         
         # Recent activity (templates created this week)
         from datetime import timedelta
         week_ago = datetime.utcnow() - timedelta(days=7)
-        recent_templates = len([t for t in templates if t.created_at and t.created_at >= week_ago])
+        recent_templates = len([t for t in templates if getattr(t, 'created_at', None) and t.created_at >= week_ago])  # type: ignore
         
         return {
             "total_templates": total_templates,
@@ -783,14 +748,14 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
             creator_name = row[1] if row[1] else "Anonymous"
             
             template = TemplateSchema(
-                id=db_template.id,
-                user_id=db_template.user_id,
-                name=db_template.name,
-                description=db_template.description,
-                source_repo_url=db_template.source_repo_url,
-                template_data=db_template.template_data,
-                tech_stack=db_template.tags or [],
-                is_public=getattr(db_template, 'is_public', False),
+                id=str(db_template.id),
+                user_id=str(db_template.user_id),
+                name=str(db_template.name),
+                description=str(db_template.description) if db_template.description else "",
+                source_repo_url=str(db_template.source_repo_url),
+                template_data=dict(db_template.template_data) if db_template.template_data else {},
+                tech_stack=list(db_template.tags) if db_template.tags else [],
+                is_public=bool(getattr(db_template, 'is_public', False)),
                 creator_name=creator_name,
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
@@ -832,14 +797,14 @@ async def search_public_templates(query: str, db: AsyncSession, limit: Optional[
             creator_name = row[1] if row[1] else "Anonymous"
             
             template = TemplateSchema(
-                id=db_template.id,
-                user_id=db_template.user_id,
-                name=db_template.name,
-                description=db_template.description,
-                source_repo_url=db_template.source_repo_url,
-                template_data=db_template.template_data,
-                tech_stack=db_template.tags or [],
-                is_public=getattr(db_template, 'is_public', False),
+                id=str(db_template.id),
+                user_id=str(db_template.user_id),
+                name=str(db_template.name),
+                description=str(db_template.description) if db_template.description else "",
+                source_repo_url=str(db_template.source_repo_url),
+                template_data=dict(db_template.template_data) if db_template.template_data else {},
+                tech_stack=list(db_template.tags) if db_template.tags else [],
+                is_public=bool(getattr(db_template, 'is_public', False)),
                 creator_name=creator_name,
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
@@ -867,13 +832,13 @@ async def toggle_template_public(template_id: str, user_id: str, db: AsyncSessio
             return None
         
         # Toggle public status
-        db_template.is_public = not db_template.is_public
-        db_template.updated_at = datetime.utcnow()
+        db_template.is_public = not db_template.is_public  # type: ignore
+        db_template.updated_at = datetime.utcnow()  # type: ignore
         
         await db.commit()
         await db.refresh(db_template)
         
-        return db_template.is_public
+        return db_template.is_public  # type: ignore
     except Exception as e:
         print(f"Error toggling template public status {template_id}: {e}")
         return None
@@ -891,8 +856,8 @@ async def get_marketplace_stats(db: AsyncSession) -> Dict[str, Any]:
         # Get unique tech stacks
         tech_stacks = set()
         for template in public_templates:
-            if template.tags:
-                tech_stacks.update(template.tags)
+            if getattr(template, 'tags', None):  # type: ignore
+                tech_stacks.update(template.tags)  # type: ignore
         
         # Count unique creators
         creator_result = await db.execute(

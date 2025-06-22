@@ -1,0 +1,30 @@
+[tool.pyright]
+pythonVersion = "3.11"
+pythonPlatform = "Darwin"
+
+# SQLAlchemy specific configurations
+reportGeneralTypeIssues = "warning"
+reportArgumentType = "warning"
+reportAttributeAccessIssue = "warning"
+reportOptionalMemberAccess = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+
+# Allow untyped decorators and functions
+reportUntypedFunctionDecorator = "none"
+reportUntypedClassDecorator = "none"
+reportUntypedBaseClass = "none"
+
+# SQLAlchemy models often have dynamic attributes
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+
+# Be less strict about missing imports
+reportMissingImports = "warning"
+reportMissingTypeStubs = "none"
+
+[tool.pylance]
+# SQLAlchemy specific settings
+autoImportCompletions = true
+useLibraryCodeForTypes = true 

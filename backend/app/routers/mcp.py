@@ -19,7 +19,7 @@ async def get_mcp_user_info(
     """Get current user information for MCP server with enhanced details"""
     try:
         # Get user statistics
-        stats = await template_service.get_user_stats(current_user.id, db)
+        stats = await template_service.get_user_stats(current_user.id, db)  # type: ignore
         
         return {
             "id": current_user.id,
@@ -27,7 +27,7 @@ async def get_mcp_user_info(
             "name": current_user.name,
             "github_username": current_user.github_username,
             "github_connected": current_user.github_connected,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+            "created_at": current_user.created_at.isoformat() if getattr(current_user, 'created_at', None) else None,  # type: ignore
             "stats": stats
         }
     except Exception as e:
@@ -41,11 +41,11 @@ async def get_mcp_dashboard_stats(
     """Get comprehensive user dashboard statistics for MCP server"""
     try:
         # Get enhanced statistics from template service
-        stats = await template_service.get_user_stats(current_user.id, db)
+        stats = await template_service.get_user_stats(current_user.id, db)  # type: ignore
         
         # Add API key count from user service
         try:
-            user_stats = await UserService.get_user_stats(current_user.id, db)
+            user_stats = await UserService.get_user_stats(current_user.id, db)  # type: ignore
             stats.update(user_stats)
         except Exception as e:
             print(f"Error getting user stats from UserService: {e}")
@@ -68,7 +68,7 @@ async def search_templates_mcp(
             raise HTTPException(status_code=400, detail="Search query cannot be empty")
         
         # Get all user templates
-        all_templates = await template_service.get_user_templates(current_user.id, db)
+        all_templates = await template_service.get_user_templates(current_user.id, db)  # type: ignore
         
         # Enhanced text-based filtering
         query_lower = q.lower().strip()
