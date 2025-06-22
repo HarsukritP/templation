@@ -139,20 +139,9 @@ export default function TemplateDetailsPage() {
       setLoading(true)
       setError(null)
       
-      // Use the MCP endpoint directly for more reliable data
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/templates/${templateId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-ID': 'auth0|test-user-123', // Use the same test user ID
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`)
-      }
-
-      const templateData = await response.json() as TemplateApiResponse
+      // Use the API client which now has proper authentication
+      const { api } = await import('../../../lib/api')
+      const templateData = await api.getTemplate(templateId) as TemplateApiResponse
       console.log('Template data received:', templateData)
       
       // Extract repo name from URL if source_repo_name is missing

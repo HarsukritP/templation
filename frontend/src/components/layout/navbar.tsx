@@ -6,9 +6,24 @@ import { Button } from "../ui/button"
 import { User } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
 import { ThemeToggle } from "../ui/theme-toggle"
+import { useEffect } from "react"
+import { setCurrentUserId } from "../../lib/api"
 
 export function Navbar() {
   const { user, isLoading } = useUser()
+
+  // Set the user ID for API calls
+  useEffect(() => {
+    if (!isLoading) {
+      if (user?.sub) {
+        setCurrentUserId(user.sub)
+        console.log('✅ User authenticated in navbar:', user.sub)
+      } else {
+        setCurrentUserId(null)
+        console.log('❌ User not authenticated in navbar')
+      }
+    }
+  }, [user, isLoading])
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 pt-4 px-4">

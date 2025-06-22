@@ -21,34 +21,56 @@ const API_BASE_URL = getApiBaseUrl();
 console.log('Final API_BASE_URL:', API_BASE_URL);
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  console.log('API Response:', response.status, response.statusText, response.url);
-  
   if (!response.ok) {
-    let errorMessage = `API call failed: ${response.status} ${response.statusText}`
+    const errorText = await response.text();
+    console.error('API Error:', response.status, errorText);
+    
     try {
-      const errorText = await response.text()
-      if (errorText) {
-        errorMessage += ` - ${errorText}`
-      }
+      const errorJson = JSON.parse(errorText);
+      throw new Error(errorJson.detail || errorJson.message || `HTTP ${response.status}`);
     } catch {
-      // Ignore error reading response text
+      throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
     }
-    console.error('API Error:', errorMessage)
-    throw new Error(errorMessage)
   }
-  return response.json()
+
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  } else {
+    return response.text() as unknown as T;
+  }
+}
+
+// Global variable to store the current user ID
+let currentUserId: string | null = null;
+
+// Function to set the current user ID (called from React components)
+export function setCurrentUserId(userId: string | null) {
+  currentUserId = userId;
+  console.log('🔐 Set current user ID:', userId);
+}
+
+// Function to get the current user ID
+function getCurrentUserId(): string {
+  if (!currentUserId) {
+    throw new Error('User not authenticated - please log in');
+  }
+  return currentUserId;
 }
 
 export class ApiClient {
   private static async getAuthHeaders(): Promise<Record<string, string>> {
-    // For now, use a test user ID to debug the API
-    // TODO: Replace with proper Auth0 integration
-    const testUserId = 'auth0|test-user-123';
-    
-    return {
-      'Content-Type': 'application/json',
-      'X-User-ID': testUserId,
-    };
+    try {
+      const userId = getCurrentUserId();
+      
+      return {
+        'Content-Type': 'application/json',
+        'X-User-ID': userId,
+      };
+    } catch (error) {
+      console.error('Authentication error:', error);
+      throw new Error('Authentication required - please log in');
+    }
   }
 
   static async get<T>(endpoint: string): Promise<T> {
@@ -100,39 +122,44 @@ export class ApiClient {
   }
 }
 
-// API endpoint functions
+// API methods
 export const api = {
+  // Health check
+  health: () => ApiClient.get('/health'),
+  
   // User endpoints
-  getCurrentUser: () => ApiClient.get('/api/users/me'),
-  getDashboardStats: () => ApiClient.get('/api/users/dashboard/stats'),
-  getUserTemplates: (limit?: number) => ApiClient.get(`/api/users/templates${limit ? `?limit=${limit}` : ''}`),
-  getUserRepositories: (limit?: number) => ApiClient.get(`/api/users/repositories${limit ? `?limit=${limit}` : ''}`),
+  getUser: () => ApiClient.get('/api/users/me'),
+  updateUser: (data: any) => ApiClient.put('/api/users/me', data),
   
   // Template endpoints
-  getTemplates: () => ApiClient.get('/api/templates'),
+  getTemplates: () => ApiClient.get('/api/templates/'),
   getTemplate: (id: string) => ApiClient.get(`/api/templates/${id}`),
-  createTemplate: (data: unknown) => ApiClient.post('/api/templates', data),
-  updateTemplate: (id: string, data: unknown) => ApiClient.put(`/api/templates/${id}`, data),
+  createTemplate: (data: any) => ApiClient.post('/api/templates/', data),
+  updateTemplate: (id: string, data: any) => ApiClient.put(`/api/templates/${id}`, data),
   deleteTemplate: (id: string) => ApiClient.delete(`/api/templates/${id}`),
   
+  // Search endpoints
+  searchRepositories: (query: string, filters?: any) => 
+    ApiClient.post('/api/search/', { description: query, filters }),
+  convertRepository: (repoUrl: string, description: string, userContext?: any) => 
+    ApiClient.post('/api/search/template-converter', { 
+      repo_url: repoUrl, 
+      template_description: description, 
+      user_context: userContext 
+    }),
+  
   // Repository endpoints
-  analyzeRepository: (data: unknown) => ApiClient.post('/api/repositories/analyze', data),
   getRepositories: () => ApiClient.get('/api/repositories/'),
   getRepository: (id: string) => ApiClient.get(`/api/repositories/${id}`),
+  analyzeRepository: (data: any) => ApiClient.post('/api/repositories/analyze', data),
   deleteRepository: (id: string) => ApiClient.delete(`/api/repositories/${id}`),
-  
-  // Search endpoints
-  searchTemplates: (query: string) => ApiClient.get(`/api/search/templates?q=${encodeURIComponent(query)}`),
-  searchRepositories: (query: string) => ApiClient.get(`/api/search/repositories?q=${encodeURIComponent(query)}`),
   
   // API Key endpoints
   getApiKeys: () => ApiClient.get('/api/api-keys/'),
-  createApiKey: (name: string, expiresInDays?: number) => ApiClient.post('/api/api-keys/', { name, expires_in_days: expiresInDays }),
-  deleteApiKey: (keyId: string) => ApiClient.delete(`/api/api-keys/${keyId}`),
-  toggleApiKey: (keyId: string) => ApiClient.put(`/api/api-keys/${keyId}/toggle`),
-  getApiKeyUsage: (keyId: string) => ApiClient.get(`/api/api-keys/${keyId}/usage`),
+  createApiKey: (data: any) => ApiClient.post('/api/api-keys/', data),
+  deleteApiKey: (id: string) => ApiClient.delete(`/api/api-keys/${id}`),
   
-  // GitHub endpoints
+  // GitHub integration endpoints
   getGithubStatus: () => ApiClient.get('/api/users/github/status'),
   connectGithub: (username: string, accessToken: string) => ApiClient.post('/api/users/github/connect', { github_username: username, access_token: accessToken }),
   disconnectGithub: () => ApiClient.post('/api/users/github/disconnect'),
@@ -155,26 +182,29 @@ export const api = {
       return { configured: false, client_id: null }
     }
   },
-  initiateGithubOAuth: () => {
-    // Since CORS is blocking our fetch requests, let's create a form
-    // and submit it to avoid CORS issues while still sending the user ID
-    const testUserId = 'auth0|test-user-123';
-    
-    // Create a temporary form to submit the request
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = `${API_BASE_URL}/api/auth/github/login`;
-    
-    // Add user ID as a hidden input
-    const userIdInput = document.createElement('input');
-    userIdInput.type = 'hidden';
-    userIdInput.name = 'user_id';
-    userIdInput.value = testUserId;
-    form.appendChild(userIdInput);
-    
-    // Submit the form
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+  initiateGithubOAuth: async () => {
+    try {
+      const userId = getCurrentUserId();
+      
+      // Create a temporary form to submit the request
+      const form = document.createElement('form');
+      form.method = 'GET';
+      form.action = `${API_BASE_URL}/api/auth/github/login`;
+      
+      // Add user ID as a hidden input
+      const userIdInput = document.createElement('input');
+      userIdInput.type = 'hidden';
+      userIdInput.name = 'user_id';
+      userIdInput.value = userId;
+      form.appendChild(userIdInput);
+      
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } catch (error) {
+      console.error('GitHub OAuth initiation failed:', error);
+      throw error;
+    }
   },
-} 
+}; 
