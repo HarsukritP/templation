@@ -25,7 +25,7 @@ export default function MarketplacePage() {
                 Marketplace Coming Soon
               </h2>
               <p className="text-muted-foreground max-w-md">
-                We're working on building an amazing marketplace where you can discover, 
+                We&apos;re working on building an amazing marketplace where you can discover, 
                 share, and collaborate on templates with the community.
               </p>
             </div>
