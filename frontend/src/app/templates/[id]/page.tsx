@@ -36,7 +36,7 @@ interface TemplateApiResponse {
   id: string
   name: string
   description?: string
-  source_repo_name: string
+  source_repo_name?: string
   source_repo_url: string
   tags?: string[]
   created_at: string
@@ -138,16 +138,35 @@ export default function TemplateDetailsPage() {
     try {
       setLoading(true)
       setError(null)
-      const { api } = await import('../../../lib/api')
       
-      const templateData = await api.getTemplate(templateId) as TemplateApiResponse
+      // Use the MCP endpoint directly for more reliable data
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/templates/${templateId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': 'auth0|test-user-123', // Use the same test user ID
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`)
+      }
+
+      const templateData = await response.json() as TemplateApiResponse
+      console.log('Template data received:', templateData)
       
+      // Extract repo name from URL if source_repo_name is missing
+      const extractRepoNameFromUrl = (url: string): string => {
+        const match = url.match(/github\.com\/([^\/]+\/[^\/]+)/)
+        return match ? match[1] : 'Unknown Repository'
+      }
+
       // Transform the data to match our expected format
       const transformedTemplate: Template = {
         id: templateData.id,
         name: templateData.name,
-        description: templateData.description || `Template converted from ${templateData.source_repo_name}`,
-        source_repo_name: templateData.source_repo_name,
+        description: templateData.description || `Template converted from ${templateData.source_repo_name || extractRepoNameFromUrl(templateData.source_repo_url)}`,
+        source_repo_name: templateData.source_repo_name || extractRepoNameFromUrl(templateData.source_repo_url),
         source_repo_url: templateData.source_repo_url,
         tags: templateData.tags || [],
         created_at: templateData.created_at,
@@ -293,34 +312,38 @@ Please provide specific guidance on how to adapt this template while maintaining
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            className="space-y-4"
           >
-            <div className="flex items-center space-x-4 min-w-0">
+            <div className="flex items-center justify-between gap-4">
               <Link href="/templates">
                 <Button variant="outline" size="sm" className="gap-2 shrink-0">
                   <ArrowLeft className="h-4 w-4" />
                   Back to Templates
                 </Button>
               </Link>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold truncate">{template.name}</h1>
-                <p className="text-muted-foreground text-sm sm:text-base truncate">
-                  From {template.source_repo_name}
-                </p>
-              </div>
+              <a 
+                href={template.source_repo_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0"
+              >
+                <Button variant="outline" className="gap-2">
+                  <Github className="h-4 w-4" />
+                  <span className="hidden sm:inline">View Source</span>
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </a>
             </div>
-            <a 
-              href={template.source_repo_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0"
-            >
-              <Button variant="outline" className="gap-2">
-                <Github className="h-4 w-4" />
-                <span className="hidden sm:inline">View Source</span>
-                <ExternalLink className="h-3 w-3" />
-              </Button>
-            </a>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Github className="h-5 w-5 shrink-0" />
+                <h1 className="text-2xl sm:text-3xl font-bold break-words">{template.name}</h1>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                From <span className="font-medium break-all">{template.source_repo_name}</span>
+              </p>
+            </div>
           </motion.div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
@@ -344,7 +367,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <p className="text-muted-foreground leading-relaxed">
+                      <p className="text-muted-foreground leading-relaxed break-words whitespace-pre-wrap">
                         {template.description}
                       </p>
                     </div>
@@ -398,11 +421,11 @@ Please provide specific guidance on how to adapt this template while maintaining
                               {step.step_number}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-medium leading-tight">{step.title}</h4>
+                              <h4 className="font-medium leading-tight break-words">{step.title}</h4>
                             </div>
                           </div>
                           <div className="ml-9">
-                            <p className="text-muted-foreground leading-relaxed mb-3">
+                            <p className="text-muted-foreground leading-relaxed mb-3 break-words whitespace-pre-wrap">
                               {step.description}
                             </p>
                             {step.command && (

@@ -269,9 +269,11 @@ export default function DashboardPage() {
                         <span className="text-xs text-muted-foreground">
                           {formatTimeAgo(template.created_at)}
                         </span>
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
+                        <Link href={`/templates/${template.id}`}>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </Link>
                       </div>
                     </CardContent>
                   </Card>

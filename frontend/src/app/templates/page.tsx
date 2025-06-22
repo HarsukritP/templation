@@ -98,21 +98,31 @@ export default function TemplatesPage() {
 
     try {
       setIsCreating(true)
+      
+      // Use the MCP template converter API directly
       const { api } = await import('../../lib/api')
-      
-      // First analyze the repository
-      await api.analyzeRepository({
-        github_url: repoUrl,
-        description: templateDescription
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/template/convert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': 'auth0|test-user-123', // Use the same test user ID as in api.ts
+        },
+        body: JSON.stringify({
+          repo_url: repoUrl,
+          template_description: templateDescription,
+          user_context: {
+            project_name: extractRepoName(repoUrl),
+            preferred_style: 'modern'
+          }
+        })
       })
-      
-      // Then convert to template
-      await api.createTemplate({
-        source_repo_url: repoUrl,
-        name: extractRepoName(repoUrl),
-        description: templateDescription,
-        tags: []
-      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Template creation failed: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      const result = await response.json()
       
       setNotification({
         type: 'success',
@@ -128,7 +138,7 @@ export default function TemplatesPage() {
       console.error('Error creating template:', err)
       setNotification({
         type: 'error',
-        message: 'Failed to create template. Please try again.'
+        message: err instanceof Error ? err.message : 'Failed to create template. Please try again.'
       })
     } finally {
       setIsCreating(false)
