@@ -55,10 +55,8 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
             >
               Go from &quot;I want to build X&quot; to &quot;Here&apos;s your custom starter code&quot; in under 5 minutes.
-
-              AI-powered template generation and community for your workflow! 
-
-              Now SUPERCHARGED with emerging MCP tech!
+              AI-powered template generation for the emerging MCP ecosystem—Cursor, Claude, OpenAI, Windsurf, and beyond—plus direct web access.
+            </motion.p>
           </motion.div>
           
           <motion.div 
