@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Button } from "../ui/button"
 import { User } from "lucide-react"
 import { useUser } from "@auth0/nextjs-auth0"
+import { ThemeToggle } from "../ui/theme-toggle"
 
 export function Navbar() {
   const { user, isLoading } = useUser()
@@ -72,6 +73,7 @@ export function Navbar() {
               <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
             ) : user ? (
               <div className="flex items-center space-x-2">
+                <ThemeToggle />
                 <Link href="/account">
                   <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0">
                     <User className="h-4 w-4" />
@@ -84,11 +86,14 @@ export function Navbar() {
                 </a>
               </div>
             ) : (
-              <a href="/auth/login">
-                <Button size="sm" className="rounded-full px-4 h-8 text-xs">
-                  Login
-                </Button>
-              </a>
+              <div className="flex items-center space-x-2">
+                <ThemeToggle />
+                <a href="/auth/login">
+                  <Button size="sm" className="rounded-full px-4 h-8 text-xs">
+                    Login
+                  </Button>
+                </a>
+              </div>
             )}
           </div>
         </div>
