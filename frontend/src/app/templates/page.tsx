@@ -60,12 +60,8 @@ export default function TemplatesPage() {
   }, [notification])
 
   useEffect(() => {
-    console.log('Templates page useEffect - user:', user, 'isLoading:', isLoading)
     if (user && !isLoading) {
-      console.log('User authenticated, fetching data...')
       fetchData()
-    } else {
-      console.log('User not ready yet, waiting...')
     }
   }, [user, isLoading])
 
@@ -107,7 +103,13 @@ export default function TemplatesPage() {
       // For testing, use the known API key for the test user
       const testApiKey = 'tk_dev_6UwH7j3DYDmbvxFSx2ZAvXT-Z74AV2U53UyIhIsf_pM'
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/template/convert`, {
+      // Ensure HTTPS in production
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app';
+      if (process.env.NODE_ENV === 'production' && apiUrl.startsWith('http://')) {
+        apiUrl = apiUrl.replace('http://', 'https://');
+      }
+      
+      const response = await fetch(`${apiUrl}/api/template/convert`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

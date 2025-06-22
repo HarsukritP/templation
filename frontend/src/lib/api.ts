@@ -1,9 +1,15 @@
 // Railway-specific fix: Use production URL when in production and env var is missing
 const getApiBaseUrl = () => {
-  // If explicitly set, use it
+  // If explicitly set, use it but ensure HTTPS in production
   if (process.env.NEXT_PUBLIC_API_URL) {
-    console.log('Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-    return process.env.NEXT_PUBLIC_API_URL;
+    let url = process.env.NEXT_PUBLIC_API_URL;
+    // Force HTTPS in production if HTTP is accidentally set
+    if (process.env.NODE_ENV === 'production' && url.startsWith('http://')) {
+      url = url.replace('http://', 'https://');
+      console.log('🔒 Forced HTTPS in production:', url);
+    }
+    console.log('Using NEXT_PUBLIC_API_URL:', url);
+    return url;
   }
   
   // If in production and no env var (Railway issue), use production URL
@@ -116,12 +122,9 @@ export function setCurrentUserId(userId: string | null) {
 
 // Function to get the current user ID
 function getCurrentUserId(): string {
-  console.log('🔍 getCurrentUserId called, currentUserId:', currentUserId);
   if (!currentUserId) {
-    console.error('❌ No currentUserId available');
     throw new Error('User not authenticated - please log in');
   }
-  console.log('✅ Returning currentUserId:', currentUserId);
   return currentUserId;
 }
 
