@@ -230,7 +230,7 @@ Please provide specific guidance on how to adapt this template while maintaining
     return (
       <ProtectedRoute>
         <DashboardLayout>
-          <div className="space-y-8">
+          <div className="space-y-8 p-4">
             <div className="animate-pulse">
               <div className="h-8 bg-muted rounded w-1/3 mb-4" />
               <div className="h-6 bg-muted rounded w-1/2 mb-8" />
@@ -250,11 +250,11 @@ Please provide specific guidance on how to adapt this template while maintaining
     return (
       <ProtectedRoute>
         <DashboardLayout>
-          <div className="space-y-8">
+          <div className="space-y-8 p-4">
             <div className="flex items-center space-x-4">
               <Link href="/templates">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
                   Back to Templates
                 </Button>
               </Link>
@@ -288,39 +288,42 @@ Please provide specific guidance on how to adapt this template while maintaining
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="space-y-8">
+        <div className="space-y-8 p-4 max-w-7xl mx-auto">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
           >
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 min-w-0">
               <Link href="/templates">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+                <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                  <ArrowLeft className="h-4 w-4" />
                   Back to Templates
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold">{template.name}</h1>
-                <p className="text-muted-foreground">From {template.source_repo_name}</p>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold truncate">{template.name}</h1>
+                <p className="text-muted-foreground text-sm sm:text-base truncate">
+                  From {template.source_repo_name}
+                </p>
               </div>
             </div>
             <a 
               href={template.source_repo_url}
               target="_blank"
               rel="noopener noreferrer"
+              className="shrink-0"
             >
-              <Button variant="outline">
-                <Github className="mr-2 h-4 w-4" />
-                View Source
-                <ExternalLink className="ml-2 h-3 w-3" />
+              <Button variant="outline" className="gap-2">
+                <Github className="h-4 w-4" />
+                <span className="hidden sm:inline">View Source</span>
+                <ExternalLink className="h-3 w-3" />
               </Button>
             </a>
           </motion.div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
             {/* Main Content */}
             <div className="xl:col-span-2 space-y-6">
               {/* Overview */}
@@ -330,25 +333,29 @@ Please provide specific guidance on how to adapt this template while maintaining
                 transition={{ delay: 0.1 }}
               >
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Code className="mr-2 h-5 w-5" />
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2">
+                      <Code className="h-5 w-5 shrink-0" />
                       Template Overview
                     </CardTitle>
                     <CardDescription>
                       AI-generated conversion guide for this repository
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">{template.description}</p>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {template.description}
+                      </p>
+                    </div>
                     {template.tech_stack.length > 0 && (
                       <div>
-                        <h4 className="font-medium mb-2">Tech Stack</h4>
+                        <h4 className="font-medium mb-3">Tech Stack</h4>
                         <div className="flex flex-wrap gap-2">
                           {template.tech_stack.map((tech) => (
                             <span
                               key={tech}
-                              className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
+                              className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-full"
                             >
                               {tech}
                             </span>
@@ -367,44 +374,48 @@ Please provide specific guidance on how to adapt this template while maintaining
                 transition={{ delay: 0.2 }}
               >
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Play className="mr-2 h-5 w-5" />
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2">
+                      <Play className="h-5 w-5 shrink-0" />
                       Conversion Steps
                     </CardTitle>
                     <CardDescription>
                       Follow these steps to convert this template for your project
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-4">
                     {template.conversion_steps.map((step, index) => (
                       <motion.div
                         key={step.step_number}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.3 + index * 0.1 }}
-                        className="border rounded-lg p-4 relative"
+                        className="border rounded-lg p-4"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center mb-2">
-                              <div className="flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded-full text-sm font-medium mr-3">
-                                {step.step_number}
-                              </div>
-                              <h4 className="font-medium">{step.title}</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded-full text-sm font-medium shrink-0 mt-0.5">
+                              {step.step_number}
                             </div>
-                            <p className="text-muted-foreground mb-3 ml-9">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-medium leading-tight">{step.title}</h4>
+                            </div>
+                          </div>
+                          <div className="ml-9">
+                            <p className="text-muted-foreground leading-relaxed mb-3">
                               {step.description}
                             </p>
                             {step.command && (
-                              <div className="ml-9">
-                                <div className="bg-muted p-3 rounded-md font-mono text-sm flex items-center justify-between">
-                                  <code>{step.command}</code>
+                              <div className="bg-muted rounded-md p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-all">
+                                    <code>{step.command}</code>
+                                  </pre>
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => copyToClipboard(step.command!, 'step', step.step_number)}
-                                    className="ml-2"
+                                    className="shrink-0"
                                   >
                                     {copiedStep === step.step_number ? (
                                       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -430,28 +441,28 @@ Please provide specific guidance on how to adapt this template while maintaining
                 transition={{ delay: 0.4 }}
               >
                 <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center">
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <CardTitle className="leading-tight">
                           AI Assistant Prompt
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="mt-1">
                           Copy this prompt to ask an AI assistant for help with this template
                         </CardDescription>
                       </div>
                       <Button
                         onClick={() => copyToClipboard(generateLLMPrompt(), 'prompt')}
-                        className="shrink-0"
+                        className="shrink-0 gap-2"
                       >
                         {copiedPrompt ? (
                           <>
-                            <CheckCircle className="mr-2 h-4 w-4" />
+                            <CheckCircle className="h-4 w-4" />
                             Copied!
                           </>
                         ) : (
                           <>
-                            <Copy className="mr-2 h-4 w-4" />
+                            <Copy className="h-4 w-4" />
                             Copy Prompt
                           </>
                         )}
@@ -460,7 +471,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                   </CardHeader>
                   <CardContent>
                     <div className="relative">
-                      <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm whitespace-pre-wrap max-h-96">
+                      <pre className="bg-muted p-4 rounded-md overflow-auto text-sm whitespace-pre-wrap max-h-96 leading-relaxed">
                         <code>{generateLLMPrompt()}</code>
                       </pre>
                     </div>
@@ -478,24 +489,28 @@ Please provide specific guidance on how to adapt this template while maintaining
                 transition={{ delay: 0.3 }}
               >
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Setup</CardTitle>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg">Quick Setup</CardTitle>
                     <CardDescription>
                       Run these commands to get started
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {template.setup_commands.map((command, index) => (
-                      <div key={index} className="bg-muted p-3 rounded-md font-mono text-sm flex items-center justify-between">
-                        <code className="flex-1">{command}</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(command, 'step')}
-                          className="ml-2"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                      <div key={index} className="bg-muted rounded-md p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-all">
+                            <code>{command}</code>
+                          </pre>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(command, 'step')}
+                            className="shrink-0"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </CardContent>
@@ -509,18 +524,20 @@ Please provide specific guidance on how to adapt this template while maintaining
                 transition={{ delay: 0.4 }}
               >
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Key Files</CardTitle>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg">Key Files</CardTitle>
                     <CardDescription>
                       Files you&apos;ll likely need to modify
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-2">
+                    <ul className="space-y-3">
                       {template.files_to_modify.map((file, index) => (
-                        <li key={index} className="flex items-center text-sm">
-                          <div className="w-2 h-2 bg-primary rounded-full mr-3" />
-                          <code className="bg-muted px-2 py-1 rounded text-xs">{file}</code>
+                        <li key={index} className="flex items-center gap-3 text-sm">
+                          <div className="w-2 h-2 bg-primary rounded-full shrink-0" />
+                          <code className="bg-muted px-2 py-1 rounded text-xs break-all">
+                            {file}
+                          </code>
                         </li>
                       ))}
                     </ul>
