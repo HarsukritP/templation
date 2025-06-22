@@ -373,14 +373,14 @@ async def analyze_repo_with_enhanced_ai(context: Dict[str, Any]) -> Dict[str, An
         return await analyze_with_enhanced_rules(context)
 
 async def analyze_with_openai_enhanced(context: Dict[str, Any], api_key: str) -> Dict[str, Any]:
-    """Enhanced OpenAI analysis with better prompting and error handling"""
+    """Enhanced OpenAI analysis with Cursor/Claude-optimized prompting"""
     import httpx
     
-    # Construct detailed, structured prompt
+    # Construct extremely detailed, Cursor/Claude-optimized prompt
     prompt = f"""
-You are an expert software developer and template creator. Analyze this GitHub repository and provide detailed, actionable instructions for converting it into a personalized template.
+You are an expert software architect and template creator specializing in generating DETAILED, ERROR-MINIMIZING instructions for AI assistants like Cursor and Claude Desktop. Your goal is to provide comprehensive, step-by-step guidance that leaves NO room for interpretation errors.
 
-Repository Analysis:
+REPOSITORY ANALYSIS:
 - Name: {context.get('repo_name')}
 - Description: {context.get('description')}
 - Primary Language: {context.get('language')}
@@ -389,47 +389,87 @@ Repository Analysis:
 - Repository Size: {context.get('size', 0)} KB
 - License: {context.get('license', 'Not specified')}
 
-File Structure (first 50 items):
-{json.dumps(context.get('structure', []), indent=2)[:1000]}...
+FILE STRUCTURE (first 50 items):
+{json.dumps(context.get('structure', []), indent=2)[:1500]}...
 
-User Requirements:
+USER REQUIREMENTS:
 - Template Purpose: {context.get('user_description')}
 - User Context: {json.dumps(context.get('user_context', {}), indent=2)}
 
-Please provide a comprehensive JSON response with these exact keys:
+CRITICAL INSTRUCTIONS FOR AI OPTIMIZATION:
+Generate a JSON response that is OPTIMIZED for AI assistants (Cursor, Claude Desktop) to execute with MINIMAL ERRORS. Each instruction must be:
+1. EXTREMELY SPECIFIC with exact file paths, line numbers when possible
+2. INCLUDE FULL CODE SNIPPETS when modifications are needed
+3. PROVIDE EXACT COMMANDS with all flags and parameters
+4. ANTICIPATE COMMON ERRORS and provide prevention steps
+5. INCLUDE VALIDATION STEPS to verify each action worked
+6. USE CLEAR, UNAMBIGUOUS LANGUAGE that AI can parse perfectly
+
+Provide this EXACT JSON structure:
+
 {{
     "conversion_steps": [
-        "Step-by-step instructions for converting this repository into the desired template",
-        "Include specific file modifications, configuration changes, and customization steps",
-        "Make steps actionable and technology-specific"
+        "1. CLONE AND SETUP: Clone the repository using 'git clone {context.get('source_repo_url', 'REPO_URL')}' and navigate to the project directory with 'cd DIRECTORY_NAME'",
+        "2. DEPENDENCY ANALYSIS: Examine package.json/requirements.txt/Gemfile for dependencies. Check for Node.js version requirements in .nvmrc or package.json engines field",
+        "3. ENVIRONMENT SETUP: Copy .env.example to .env if it exists. If not, create .env file with required variables based on code analysis",
+        "4. DEPENDENCY INSTALLATION: Run the appropriate install command based on package manager detected (npm install, yarn install, pip install -r requirements.txt, bundle install, etc.)",
+        "5. CONFIGURATION CUSTOMIZATION: [SPECIFIC TO REPO TYPE - provide exact file modifications needed]",
+        "6. BRANDING CUSTOMIZATION: Update all instances of original project name/branding in package.json, README.md, HTML title tags, meta descriptions",
+        "7. STYLING CUSTOMIZATION: [SPECIFIC STYLING MODIFICATIONS based on detected CSS framework]",
+        "8. FUNCTIONALITY TESTING: Run development server and verify all features work correctly",
+        "9. BUILD VERIFICATION: Run production build command and ensure no errors",
+        "10. DOCUMENTATION UPDATE: Update README.md with your project details, setup instructions, and customization notes"
     ],
     "files_to_modify": [
-        "List of specific files that need to be modified for customization",
-        "Include configuration files, source files, and documentation"
+        "package.json - Update name, description, version, author, repository URL",
+        "README.md - Replace with your project description and setup instructions", 
+        ".env - Configure environment variables for your specific use case",
+        "src/config/ - Update any configuration files with your settings",
+        "[SPECIFIC FILES BASED ON FRAMEWORK DETECTED]"
     ],
     "customization_points": [
-        "Key areas where users can customize the template",
-        "Include styling, functionality, and configuration options"
+        "PROJECT METADATA: Update package.json with your project name, description, author, and repository URL",
+        "ENVIRONMENT VARIABLES: Configure API keys, database URLs, and service endpoints in .env file",
+        "BRANDING: Replace logos, favicons, and brand colors throughout the application",
+        "STYLING: Customize CSS/SCSS variables, Tailwind config, or styled-components theme",
+        "CONTENT: Update placeholder text, images, and demo data with your actual content",
+        "FEATURES: Enable/disable features based on your requirements",
+        "DEPLOYMENT: Configure deployment settings for your chosen platform (Vercel, Netlify, Railway, etc.)",
+        "[FRAMEWORK-SPECIFIC CUSTOMIZATIONS]"
     ],
     "setup_commands": [
-        "Exact commands to set up and run the template",
-        "Include installation, build, and development commands"
+        "# Clone and navigate",
+        "git clone {context.get('source_repo_url', 'REPO_URL')}",
+        "cd PROJECT_DIRECTORY",
+        "",
+        "# Install dependencies",
+        "[PACKAGE_MANAGER_INSTALL_COMMAND]",
+        "",
+        "# Environment setup", 
+        "cp .env.example .env  # Copy environment template",
+        "# Edit .env file with your specific values",
+        "",
+        "# Development server",
+        "[DEV_SERVER_COMMAND]",
+        "",
+        "# Production build (when ready)",
+        "[BUILD_COMMAND]"
     ],
-    "expected_outcome": "Detailed description of what the final customized template will achieve and how it will work"
+    "expected_outcome": "A fully functional, customized version of the original repository that serves your specific use case. The template will maintain all original functionality while being personalized with your branding, content, and configuration. You'll have a production-ready application that can be deployed to your chosen platform with minimal additional setup. All dependencies will be properly configured, environment variables set up, and documentation updated to reflect your customizations."
 }}
 
-Focus on:
-1. Technology-specific best practices
-2. Security considerations
-3. Performance optimizations
-4. User experience improvements
-5. Deployment readiness
+TECHNOLOGY-SPECIFIC REQUIREMENTS:
+- If React/Next.js: Include specific instructions for components, pages, styling, and deployment
+- If Vue/Nuxt: Include Vue-specific configuration and component customization
+- If Python/Django/FastAPI: Include database setup, API configuration, and dependency management
+- If Node.js/Express: Include middleware configuration, route setup, and environment management
+- If any CSS framework (Tailwind, Bootstrap, etc.): Include theme customization instructions
 
-Make all instructions specific to this repository type and the user's stated goals.
+MAKE EVERY INSTRUCTION ACTIONABLE AND ERROR-PROOF FOR AI EXECUTION.
     """
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:  # Increased timeout for detailed analysis
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -437,19 +477,19 @@ Make all instructions specific to this repository type and the user's stated goa
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "gpt-4",  # Use GPT-4 for better analysis
+                    "model": "gpt-4o",  # Use latest GPT-4o for best analysis
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are an expert software developer and template creator. Provide detailed, actionable instructions in valid JSON format."
+                            "content": "You are an expert software architect specializing in creating detailed, AI-optimized template conversion instructions. Provide comprehensive, error-minimizing guidance in valid JSON format. Focus on specificity and actionability for AI assistants like Cursor and Claude Desktop."
                         },
                         {
                             "role": "user",
                             "content": prompt
                         }
                     ],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,  # Lower temperature for more consistent results
+                    "max_tokens": 3000,  # Increased for more detailed responses
+                    "temperature": 0.2,  # Very low temperature for consistency
                 }
             )
             
@@ -469,10 +509,17 @@ Make all instructions specific to this repository type and the user's stated goa
                         end = content.find("```", start)
                         content = content[start:end].strip()
                     
-                    return json.loads(content)
+                    parsed_result = json.loads(content)
+                    
+                    # Validate and enhance the result
+                    if not all(key in parsed_result for key in ["conversion_steps", "files_to_modify", "customization_points", "setup_commands", "expected_outcome"]):
+                        print("Incomplete OpenAI response, falling back to enhanced rules")
+                        return await analyze_with_enhanced_rules(context)
+                    
+                    return parsed_result
                 except json.JSONDecodeError:
                     # If JSON parsing fails, fall back to rule-based analysis
-                    print("Failed to parse OpenAI JSON response, falling back to rules")
+                    print("Failed to parse OpenAI JSON response, falling back to enhanced rules")
                     return await analyze_with_enhanced_rules(context)
             else:
                 print(f"OpenAI API error: {response.status_code}")

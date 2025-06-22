@@ -79,14 +79,16 @@ export default function HomePage() {
                 </Button>
               </motion.div>
             </Link>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button variant="outline" size="lg" className="text-lg px-8">
-                View Demo
-              </Button>
-            </motion.div>
+            <Link href="/setup">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button variant="outline" size="lg" className="text-lg px-8">
+                  View Docs
+                </Button>
+              </motion.div>
+            </Link>
           </motion.div>
         </div>
       </section>

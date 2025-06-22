@@ -11,18 +11,18 @@ import {
   Rocket, 
   Copy, 
   Terminal, 
-  Globe, 
   Settings, 
   Star,
   ArrowRight,
   CheckCircle,
   Play,
-  Download
+  Download,
+  BookOpen,
+  Layers,
+  Globe
 } from 'lucide-react'
-import { ProtectedRoute } from '../../components/auth/protected-route'
-import { DashboardLayout } from '../../components/layout/dashboard-layout'
 
-export default function ReadmePage() {
+export default function DocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   const copyToClipboard = (text: string, id: string) => {
@@ -59,153 +59,158 @@ await templation.convertRepository({
   }
 
   return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <div className="max-w-6xl mx-auto space-y-16 pb-16">
-          {/* Header - README Style */}
-          <div className="text-center space-y-6 pt-8">
-            <div className="inline-flex items-center space-x-3 bg-gray-900 text-green-400 px-6 py-3 rounded-lg font-mono text-sm">
-              <Terminal className="h-4 w-4" />
-              <span>README.md</span>
-        </div>
-        
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">
-              # Templation
-            </h1>
-            
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              🚀 The first <strong>MCP-powered</strong> repository template system. Transform any GitHub repository into a personalized, AI-guided template in minutes.
-            </p>
-
-            <div className="flex items-center justify-center space-x-6 text-sm text-muted-foreground">
-              <div className="flex items-center space-x-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>AI-Powered</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Zap className="h-4 w-4 text-blue-500" />
-                <span>MCP Compatible</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Globe className="h-4 w-4 text-green-500" />
-                <span>Universal</span>
-              </div>
-            </div>
-          </div>
-
-          {/* What is Templation */}
-          <Card className="border-2 border-blue-800/50 bg-gradient-to-br from-blue-950/30 to-indigo-950/30">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center space-x-3">
-                <Brain className="h-6 w-6 text-blue-400" />
-                <span>## What is Templation?</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                Templation revolutionizes how developers work with code templates. Instead of generic boilerplates, 
-                get <strong className="text-foreground">intelligent, personalized templates</strong> that understand your specific needs.
-              </p>
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="text-center space-y-3">
-                  <div className="w-16 h-16 bg-blue-900/50 border border-blue-700/50 rounded-full flex items-center justify-center mx-auto">
-                    <GitBranch className="h-8 w-8 text-blue-400" />
-                  </div>
-                  <h3 className="font-semibold text-foreground">Any Repository</h3>
-                  <p className="text-sm text-muted-foreground">Works with any GitHub repository, any tech stack, any complexity level.</p>
-                </div>
-                
-                <div className="text-center space-y-3">
-                  <div className="w-16 h-16 bg-purple-900/50 border border-purple-700/50 rounded-full flex items-center justify-center mx-auto">
-                    <Brain className="h-8 w-8 text-purple-400" />
-                  </div>
-                  <h3 className="font-semibold text-foreground">AI Analysis</h3>
-                  <p className="text-sm text-muted-foreground">Deep code understanding generates personalized setup instructions.</p>
-                </div>
-                
-                <div className="text-center space-y-3">
-                  <div className="w-16 h-16 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center mx-auto">
-                    <Rocket className="h-8 w-8 text-green-400" />
-                  </div>
-                  <h3 className="font-semibold text-foreground">Ready Template</h3>
-                  <p className="text-sm text-muted-foreground">Get step-by-step instructions tailored to your specific use case.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* How It Works */}
-          <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-center">## How It Works</h2>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                {
-                  step: "01",
-                  title: "Paste Repository URL",
-                  description: "Any GitHub repository becomes a potential template",
-                  icon: GitBranch,
-                  color: "blue"
-                },
-                {
-                  step: "02", 
-                  title: "AI Deep Analysis",
-                  description: "Our AI analyzes code structure, dependencies, and patterns",
-                  icon: Brain,
-                  color: "purple"
-                },
-                {
-                  step: "03",
-                  title: "Generate Instructions",
-                  description: "Creates personalized setup and customization guides",
-                  icon: Code2,
-                  color: "green"
-                },
-                {
-                  step: "04",
-                  title: "Use Anywhere",
-                  description: "Access via web app, MCP server, or direct API",
-                  icon: Rocket,
-                  color: "orange"
-                }
-              ].map((item, index) => (
-                <Card key={index} className={`relative overflow-hidden border-2 border-${item.color}-800/50 bg-gradient-to-br from-${item.color}-950/30 to-${item.color}-900/20`}>
-                  <CardContent className="p-6 text-center space-y-4">
-                    <div className={`w-12 h-12 bg-${item.color}-900/50 border border-${item.color}-700/50 rounded-full flex items-center justify-center mx-auto`}>
-                      <item.icon className={`h-6 w-6 text-${item.color}-400`} />
-                    </div>
-                    <div className={`text-2xl font-bold text-${item.color}-400`}>{item.step}</div>
-                    <h3 className="font-semibold text-foreground">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground">{item.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto px-4 py-16 space-y-16">
+        {/* Header */}
+        <div className="text-center space-y-6">
+          <div className="inline-flex items-center space-x-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
+            <BookOpen className="h-4 w-4" />
+            <span>Documentation</span>
           </div>
           
-          {/* MCP Integration */}
-          <Card className="border-2 border-purple-800/50 bg-gradient-to-br from-purple-950/30 to-pink-950/20">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center space-x-3">
-                <Settings className="h-6 w-6 text-purple-400" />
-                <span>## MCP Server Integration</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <p className="text-lg text-muted-foreground">
-                Templation is built on the <strong className="text-foreground">Model Context Protocol (MCP)</strong>, making it compatible with 
-                Claude Desktop, VS Code, and other AI assistants.
-              </p>
+          <h1 className="text-4xl md:text-5xl font-bold">
+            Templation Docs
+          </h1>
+          
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            Transform any GitHub repository into a personalized, AI-guided template in minutes. 
+            Built for modern development workflows with MCP integration.
+          </p>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">### Installation</h3>
-                <div className="bg-gray-900 rounded-lg p-4 relative">
-                  <code className="text-green-400 font-mono text-sm">{codeExamples.install}</code>
+          <div className="flex items-center justify-center space-x-6 text-sm">
+            <div className="flex items-center space-x-2 text-muted-foreground">
+              <Star className="h-4 w-4 text-yellow-500" />
+              <span>AI-Powered</span>
+            </div>
+            <div className="flex items-center space-x-2 text-muted-foreground">
+              <Zap className="h-4 w-4 text-blue-500" />
+              <span>MCP Compatible</span>
+            </div>
+            <div className="flex items-center space-x-2 text-muted-foreground">
+              <Globe className="h-4 w-4 text-green-500" />
+              <span>Universal</span>
+            </div>
+          </div>
+        </div>
+
+        {/* What is Templation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center space-x-3">
+              <Brain className="h-6 w-6 text-primary" />
+              <span>What is Templation?</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-lg text-muted-foreground">
+              Templation revolutionizes how developers work with code templates. Instead of generic boilerplates, 
+              get intelligent, personalized templates that understand your specific needs.
+            </p>
+            
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <GitBranch className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold">Any Repository</h3>
+                <p className="text-sm text-muted-foreground">Works with any GitHub repository, any tech stack, any complexity level.</p>
+              </div>
+              
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <Brain className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold">AI Analysis</h3>
+                <p className="text-sm text-muted-foreground">Deep code understanding generates personalized setup instructions.</p>
+              </div>
+              
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <Rocket className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold">Ready Template</h3>
+                <p className="text-sm text-muted-foreground">Get step-by-step instructions tailored to your specific use case.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* How It Works */}
+        <div className="space-y-8">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl font-bold">How It Works</h2>
+            <p className="text-muted-foreground">Four simple steps to transform any repository into your perfect template</p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                step: "01",
+                title: "Paste Repository URL",
+                description: "Any GitHub repository becomes a potential template",
+                icon: GitBranch
+              },
+              {
+                step: "02", 
+                title: "AI Deep Analysis",
+                description: "Our AI analyzes code structure, dependencies, and patterns",
+                icon: Brain
+              },
+              {
+                step: "03",
+                title: "Generate Instructions",
+                description: "Creates personalized setup and customization guides",
+                icon: Code2
+              },
+              {
+                step: "04",
+                title: "Use Anywhere",
+                description: "Access via web app, MCP server, or direct API",
+                icon: Rocket
+              }
+            ].map((item, index) => (
+              <Card key={index} className="relative">
+                <CardContent className="p-6 text-center space-y-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <item.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-2xl font-bold text-primary">{item.step}</div>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+        
+        {/* MCP Integration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center space-x-3">
+              <Settings className="h-6 w-6 text-primary" />
+              <span>MCP Server Integration</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-lg text-muted-foreground">
+              Templation is built on the Model Context Protocol (MCP), making it compatible with 
+              Claude Desktop, VS Code, and other AI assistants.
+            </p>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
+                  <Download className="h-5 w-5 text-primary" />
+                  <span>Installation</span>
+                </h3>
+                <div className="relative">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{codeExamples.install}</code>
+                  </pre>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                    className="absolute top-2 right-2"
                     onClick={() => copyToClipboard(codeExamples.install, 'install')}
                   >
                     {copiedCode === 'install' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -213,178 +218,108 @@ await templation.convertRepository({
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">### Configuration</h3>
-                <div className="bg-gray-900 rounded-lg p-4 relative">
-                  <pre className="text-green-400 font-mono text-sm overflow-x-auto">{codeExamples.config}</pre>
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  <span>Configuration</span>
+                </h3>
+                <div className="relative">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{codeExamples.config}</code>
+                  </pre>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                    className="absolute top-2 right-2"
                     onClick={() => copyToClipboard(codeExamples.config, 'config')}
                   >
                     {copiedCode === 'config' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Usage Examples */}
-          <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-center">## Usage Examples</h2>
-            
-            <div className="grid md:grid-cols-2 gap-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Code2 className="h-5 w-5" />
-                    <span>MCP Functions</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-gray-900 rounded-lg p-4 relative">
-                    <pre className="text-green-400 font-mono text-sm overflow-x-auto">{codeExamples.usage}</pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                      onClick={() => copyToClipboard(codeExamples.usage, 'usage')}
-                    >
-                      {copiedCode === 'usage' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Terminal className="h-5 w-5" />
-                    <span>Direct API</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-gray-900 rounded-lg p-4 relative">
-                    <pre className="text-green-400 font-mono text-sm overflow-x-auto">{codeExamples.curl}</pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                      onClick={() => copyToClipboard(codeExamples.curl, 'curl')}
-                    >
-                      {copiedCode === 'curl' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Use Cases */}
-          <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-center">## Use Cases</h2>
-            
-            <div className="grid md:grid-cols-3 gap-6">
-              {[
-                {
-                  title: "Portfolio Websites",
-                  description: "Transform any portfolio into your personal brand",
-                  example: "React → Your Portfolio",
-                  color: "blue"
-                },
-                {
-                  title: "Starter Projects", 
-                  description: "Learning-focused templates with guided setup",
-                  example: "Next.js → Learning Project",
-                  color: "green"
-                },
-                {
-                  title: "Enterprise Templates",
-                  description: "Team productivity with standardized setups",
-                  example: "Microservice → Team Standard",
-                  color: "purple"
-                }
-              ].map((useCase, index) => (
-                <Card key={index} className={`border-2 border-${useCase.color}-800/50 hover:shadow-lg transition-all duration-300 bg-${useCase.color}-950/20`}>
-                  <CardContent className="p-6 space-y-4">
-                    <h3 className="text-lg font-semibold text-foreground">{useCase.title}</h3>
-                    <p className="text-muted-foreground">{useCase.description}</p>
-                    <div className={`inline-flex items-center space-x-2 bg-${useCase.color}-900/50 text-${useCase.color}-400 border border-${useCase.color}-700/50 px-3 py-1 rounded-full text-sm`}>
-                      <Play className="h-3 w-3" />
-                      <span>{useCase.example}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-          
-          {/* Get Started */}
-          <Card className="border-2 border-green-800/50 bg-gradient-to-br from-green-950/30 to-emerald-950/20">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center space-x-3">
-                <Rocket className="h-6 w-6 text-green-400" />
-                <span>## Get Started</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <p className="text-lg text-muted-foreground">
-                Choose your preferred way to start using Templation:
-              </p>
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                <Card className="border-2 border-blue-800/50 bg-blue-950/20 hover:shadow-md transition-all">
-                  <CardContent className="p-6 text-center space-y-4">
-                    <Globe className="h-8 w-8 text-blue-400 mx-auto" />
-                    <h3 className="font-semibold text-foreground">Web Application</h3>
-                    <p className="text-sm text-muted-foreground">Use the full-featured web interface</p>
-                    <Button className="w-full" onClick={() => window.location.href = '/templates'}>
-                      Open Templates <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-2 border-purple-800/50 bg-purple-950/20 hover:shadow-md transition-all">
-                  <CardContent className="p-6 text-center space-y-4">
-                    <Settings className="h-8 w-8 text-purple-400 mx-auto" />
-                    <h3 className="font-semibold text-foreground">MCP Server</h3>
-                    <p className="text-sm text-muted-foreground">Integrate with Claude Desktop & AI assistants</p>
-                    <Button variant="outline" className="w-full" onClick={() => copyToClipboard(codeExamples.install, 'get-started')}>
-                      <Download className="mr-2 h-4 w-4" />
-                      {copiedCode === 'get-started' ? 'Copied!' : 'Copy Install'}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-2 border-green-800/50 bg-green-950/20 hover:shadow-md transition-all">
-                  <CardContent className="p-6 text-center space-y-4">
-                    <Code2 className="h-8 w-8 text-green-400 mx-auto" />
-                    <h3 className="font-semibold text-foreground">Direct API</h3>
-                    <p className="text-sm text-muted-foreground">Build custom integrations</p>
-                    <Button variant="outline" className="w-full" onClick={() => window.location.href = '/api-keys'}>
-                      Get API Key <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center space-x-2">
+                  <Code2 className="h-5 w-5 text-primary" />
+                  <span>Usage Example</span>
+                </h3>
+                <div className="relative">
+                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                    <code>{codeExamples.usage}</code>
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyToClipboard(codeExamples.usage, 'usage')}
+                  >
+                    {copiedCode === 'usage' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Footer */}
-          <div className="text-center space-y-4 pt-8 border-t">
-            <p className="text-muted-foreground">
-              Built with ❤️ for the developer community
-            </p>
-            <div className="flex items-center justify-center space-x-6 text-sm text-muted-foreground">
-              <span>🚀 AI-Powered</span>
-              <span>⚡ Lightning Fast</span>
-              <span>🔧 Developer-First</span>
-              <span>🌍 Open Source Ready</span>
             </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    </ProtectedRoute>
+          </CardContent>
+        </Card>
+
+        {/* API Reference */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center space-x-3">
+              <Terminal className="h-6 w-6 text-primary" />
+              <span>API Reference</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-muted-foreground">
+              Use Templation directly via our REST API for custom integrations.
+            </p>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Search Exemplar Repositories</h3>
+              <div className="relative">
+                <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+                  <code>{codeExamples.curl}</code>
+                </pre>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => copyToClipboard(codeExamples.curl, 'curl')}
+                >
+                  {copiedCode === 'curl' ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Get Started */}
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold">Ready to Get Started?</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Transform your first repository into a template and experience the power of AI-driven development.
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a href="/templates">
+                <Button size="lg" className="px-8">
+                  <Play className="mr-2 h-5 w-5" />
+                  Start Creating Templates
+                </Button>
+              </a>
+              <a href="/marketplace">
+                <Button variant="outline" size="lg" className="px-8">
+                  <Layers className="mr-2 h-5 w-5" />
+                  Browse Marketplace
+                </Button>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 } 

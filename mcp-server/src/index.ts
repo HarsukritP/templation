@@ -560,34 +560,47 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
           result += `\n`;
 
-          if (conversionResult.conversion_steps?.length > 0) {
-            result += `## 📋 Step-by-Step Conversion Guide\n`;
-            conversionResult.conversion_steps.forEach((step: string, index: number) => {
-              result += `${index + 1}. ${step}\n`;
-            });
-            result += `\n`;
-          }
+          // Add AI Assistant Optimization Notice
+          result += `🤖 **AI Assistant Optimized Instructions**\n`;
+          result += `*These instructions are specifically formatted for AI assistants like Cursor and Claude Desktop to minimize errors and maximize success.*\n\n`;
 
           if (conversionResult.setup_commands?.length > 0) {
-            result += `## 🚀 Setup Commands\n\`\`\`bash\n`;
+            result += `## ⚡ Quick Start Commands\n`;
+            result += `*Copy and execute these commands in sequence:*\n\n`;
+            result += `\`\`\`bash\n`;
             conversionResult.setup_commands.forEach((command: string) => {
-              result += `${command}\n`;
+              // Skip empty lines in command formatting for clarity
+              if (command.trim()) {
+                result += `${command}\n`;
+              } else {
+                result += `\n`;
+              }
             });
             result += `\`\`\`\n\n`;
           }
 
+          if (conversionResult.conversion_steps?.length > 0) {
+            result += `## 📋 Detailed Setup Instructions\n`;
+            result += `*Follow these steps in order for optimal results:*\n\n`;
+            conversionResult.conversion_steps.forEach((step: string, index: number) => {
+              result += `### Step ${index + 1}\n${step}\n\n`;
+            });
+          }
+
           if (conversionResult.files_to_modify?.length > 0) {
-            result += `## 📝 Files to Customize\n`;
-            conversionResult.files_to_modify.forEach((file: string) => {
-              result += `• \`${file}\`\n`;
+            result += `## 📝 Critical Files to Modify\n`;
+            result += `*These files MUST be updated for proper customization:*\n\n`;
+            conversionResult.files_to_modify.forEach((file: string, index: number) => {
+              result += `${index + 1}. **${file}**\n`;
             });
             result += `\n`;
           }
 
           if (conversionResult.customization_points?.length > 0) {
             result += `## 🎨 Key Customization Areas\n`;
-            conversionResult.customization_points.forEach((point: string) => {
-              result += `• ${point}\n`;
+            result += `*Focus on these areas to make the template truly yours:*\n\n`;
+            conversionResult.customization_points.forEach((point: string, index: number) => {
+              result += `${index + 1}. **${point}**\n`;
             });
             result += `\n`;
           }
