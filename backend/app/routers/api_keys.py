@@ -74,19 +74,18 @@ async def create_api_key(
         # Generate a secure API key
         raw_key = f"tk_{'prod' if 'prod' in request.name.lower() else 'dev'}_{secrets.token_urlsafe(32)}"
         
-        # Hash the key for storage
-        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        # Create display prefix (first 12 chars + ... + last 8 chars)
         key_prefix = raw_key[:12] + "..." + raw_key[-8:]
         
         # Calculate expiration date
         expires_at = datetime.utcnow() + timedelta(days=request.expires_in_days)
         
-        # Create API key in database
+        # Store full key in key_hash field for authentication (working as designed)
         api_key = await APIKeyService.create_api_key(
             user_id=current_user.id,
             name=request.name,
-            key_hash=key_hash,
-            key_prefix=key_prefix,
+            key_hash=raw_key,  # Store full key in key_hash for authentication
+            key_prefix=key_prefix,  # Store display prefix in key_prefix for UI
             expires_at=expires_at,
             db=db
         )

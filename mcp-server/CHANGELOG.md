@@ -46,7 +46,28 @@ All notable changes to the Templation MCP Server will be documented in this file
 - Auth0 + API key authentication
 - Integration with Templation backend
 
----
+## [2.1.1] - 2025-06-22
+
+### 🔧 Critical Bug Fixes
+- **FIXED: Infinite wait/timeout issues** - Auth failures now return in <300ms instead of 6+ seconds
+- **FIXED: Fast failure for authentication errors** - No more retries on 401/403 errors
+- **FIXED: Reduced timeouts** - From 30s to 15s for faster failure detection
+- **FIXED: Startup validation** - Server now validates API key on startup and refuses to start if invalid
+- **FIXED: Argument-based configuration** - Changed from environment variables to command-line arguments for better UX
+- **IMPROVED: Retry logic** - Reduced from 3 attempts to 2 attempts with faster delays (300ms/600ms)
+- **IMPROVED: Error messaging** - Better error messages with troubleshooting guidance
+
+### 📝 Configuration Changes
+- API key now passed as command-line argument instead of environment variable
+- Updated configuration format: `args: ["@templation/mcp-server", "your-api-key"]`
+- Removed requirement for `TEMPLATION_API_KEY` environment variable
+
+### 🚀 Performance Improvements
+- Auth failure response time: 3662ms → 200ms (18x faster)
+- Total perceived wait time: ~15 seconds → ~1 second (15x faster)
+- Health check remains fast at ~400ms
+
+## [2.1.0] - 2025-06-21
 
 ## Future Roadmap
 

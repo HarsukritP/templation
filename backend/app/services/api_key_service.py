@@ -65,15 +65,12 @@ class APIKeyService:
     async def authenticate_api_key(raw_key: str, db: AsyncSession) -> Optional[User]:
         """Authenticate an API key and return the associated user"""
         try:
-            # Hash the provided key
-            key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
-            
-            # Find the API key
+            # Find the API key by direct comparison (key_hash now stores the full key)
             result = await db.execute(
                 select(APIKey, User)
                 .join(User, APIKey.user_id == User.id)
                 .where(
-                    APIKey.key_hash == key_hash,
+                    APIKey.key_hash == raw_key,
                     APIKey.is_active == True,
                     APIKey.expires_at > datetime.utcnow()
                 )

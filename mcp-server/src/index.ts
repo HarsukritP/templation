@@ -640,12 +640,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { include_stats = true } = args as { include_stats?: boolean };
         
         try {
-          const userInfo = await apiCall('/api/users/me') as any;
+          const userInfo = await apiCall('/api/user/me') as any;
           let stats = null;
           
           if (include_stats) {
             try {
-              stats = await apiCall('/api/users/dashboard/stats') as any;
+              stats = await apiCall('/api/user/dashboard/stats') as any;
             } catch (e) {
               // Stats are optional, continue without them
             }
@@ -700,7 +700,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { include_recent_activity = false } = args as { include_recent_activity?: boolean };
         
         try {
-          const stats = await apiCall('/api/users/dashboard/stats') as any;
+          const stats = await apiCall('/api/user/dashboard/stats') as any;
           
           let result = `📊 **Dashboard Statistics**\n\n`;
           result += `**📁 Total Templates:** ${stats.total_templates || 0}\n`;

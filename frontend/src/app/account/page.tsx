@@ -275,12 +275,18 @@ export default function AccountPage() {
       mcpServers: {
         templation: {
           command: "npx",
-          args: ["@templation/mcp-server"],
-          env: {
-            TEMPLATION_API_KEY: apiKey,
-            TEMPLATION_API_URL: "https://templation-backend.up.railway.app"
-          }
+          args: ["@templation/mcp-server", apiKey]
         }
+      }
+    }
+  }
+
+  const generateCursorMCPConfig = () => {
+    const apiKey = apiKeys[0]?.key_prefix || 'your_api_key_here'
+    return {
+      templation: {
+        command: "mcp-server",
+        args: [apiKey]
       }
     }
   }
@@ -638,21 +644,44 @@ export default function AccountPage() {
 
                   <div>
                     <h4 className="font-medium mb-2">2. Add to your MCP configuration file</h4>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Add this to your <code>~/.config/claude-desktop/claude_desktop_config.json</code> file:
-                    </p>
-                    <div className="relative">
-                      <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
-                        <code>{JSON.stringify(generateMCPConfig(), null, 2)}</code>
-                      </pre>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(JSON.stringify(generateMCPConfig(), null, 2))}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          <strong>For Claude Desktop</strong> - Add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:
+                        </p>
+                        <div className="relative">
+                          <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
+                            <code>{JSON.stringify(generateMCPConfig(), null, 2)}</code>
+                          </pre>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => copyToClipboard(JSON.stringify(generateMCPConfig(), null, 2))}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          <strong>For Cursor</strong> - Add to <code>~/.cursor-mcp/config.json</code>:
+                        </p>
+                        <div className="relative">
+                          <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
+                            <code>{JSON.stringify(generateCursorMCPConfig(), null, 2)}</code>
+                          </pre>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => copyToClipboard(JSON.stringify(generateCursorMCPConfig(), null, 2))}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

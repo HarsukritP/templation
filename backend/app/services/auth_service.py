@@ -5,7 +5,7 @@ from typing import Optional
 import httpx
 import os
 
-from app.models.schemas import User
+from app.models.database import User
 from app.services.user_service import UserService
 from app.db.database import get_database
 

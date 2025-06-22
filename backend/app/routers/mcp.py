@@ -335,6 +335,13 @@ async def increment_template_usage_mcp(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update template usage: {str(e)}")
 
+@router.get("/user/test")
+async def test_user_auth(
+    current_user: User = Depends(get_current_user_from_api_key)
+):
+    """Test endpoint to check if auth works"""
+    return {"message": "Auth works!", "user_id": current_user.id, "email": current_user.email}
+
 def extract_repo_name_from_url(url: str) -> str:
     """Extract repository name from GitHub URL"""
     try:
