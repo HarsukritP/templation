@@ -192,7 +192,7 @@ export default function TemplatesPage() {
   const handleShareToMarketplace = async (templateId: string) => {
     try {
       const { api } = await import('../../lib/api')
-      const result = await api.toggleTemplatePublic(templateId) as any
+      const result = await api.toggleTemplatePublic(templateId) as { is_public: boolean }
       
       setNotification({
         type: 'success',

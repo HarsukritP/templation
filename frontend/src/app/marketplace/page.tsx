@@ -5,8 +5,7 @@ import { ProtectedRoute } from "../../components/auth/protected-route"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Search, Github, Clock, ExternalLink, Download, Users, Code2 } from "lucide-react"
-import { useUser } from "@auth0/nextjs-auth0"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 
 interface MarketplaceTemplate {
@@ -28,7 +27,6 @@ interface MarketplaceStats {
 }
 
 export default function MarketplacePage() {
-  const { user } = useUser()
   const [templates, setTemplates] = useState<MarketplaceTemplate[]>([])
   const [stats, setStats] = useState<MarketplaceStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -43,11 +41,7 @@ export default function MarketplacePage() {
     }
   }, [notification])
 
-  useEffect(() => {
-    fetchMarketplaceData()
-  }, [])
-
-  const fetchMarketplaceData = async () => {
+  const fetchMarketplaceData = useCallback(async () => {
     try {
       setLoading(true)
       const { api } = await import('../../lib/api')
@@ -69,28 +63,14 @@ export default function MarketplacePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchQuery])
+
+  useEffect(() => {
+    fetchMarketplaceData()
+  }, [fetchMarketplaceData])
 
   const handleSearch = async () => {
     await fetchMarketplaceData()
-  }
-
-  const handleUseTemplate = async (templateId: string) => {
-    try {
-      const { api } = await import('../../lib/api')
-      await api.useMarketplaceTemplate(templateId)
-      
-      setNotification({
-        type: 'success',
-        message: 'Template details copied! Check the template page for setup instructions.'
-      })
-    } catch (err) {
-      console.error('Error using template:', err)
-      setNotification({
-        type: 'error',
-        message: 'Failed to use template'
-      })
-    }
   }
 
   const formatTimeAgo = (dateString: string) => {
