@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { 
@@ -13,7 +14,6 @@ import {
   Terminal, 
   Settings, 
   Star,
-  ArrowRight,
   CheckCircle,
   Play,
   Download,
@@ -304,18 +304,18 @@ await templation.convertRepository({
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/templates">
+              <Link href="/templates">
                 <Button size="lg" className="px-8">
                   <Play className="mr-2 h-5 w-5" />
                   Start Creating Templates
                 </Button>
-              </a>
-              <a href="/marketplace">
+              </Link>
+              <Link href="/marketplace">
                 <Button variant="outline" size="lg" className="px-8">
                   <Layers className="mr-2 h-5 w-5" />
                   Browse Marketplace
                 </Button>
-              </a>
+              </Link>
             </div>
           </CardContent>
         </Card>
