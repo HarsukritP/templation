@@ -13,15 +13,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Parse command line arguments or environment variables
-const args = process.argv.slice(2);
-const API_KEY = args[0] || process.env.TEMPLATION_API_KEY;
+// Configuration with fallbacks
 const API_BASE_URL = process.env.TEMPLATION_API_URL || 'https://templation-api.up.railway.app';
+const API_KEY = process.env.TEMPLATION_API_KEY;
 
 if (!API_KEY) {
-  console.error('❌ TEMPLATION_API_KEY is required');
-  console.error('📋 Usage: mcp-server <your-api-key>');
-  console.error('📋 Or set TEMPLATION_API_KEY environment variable');
+  console.error('❌ TEMPLATION_API_KEY environment variable is required');
   console.error('📋 Get your API key at: https://templation.up.railway.app/api-keys');
   process.exit(1);
 }
@@ -55,19 +52,19 @@ function setCache(key: string, data: any, ttlMs: number = 300000): void { // 5 m
   cache.set(key, { data, timestamp: Date.now(), ttl: ttlMs });
 }
 
-// Enhanced API call helper with FAST FAILURE for auth issues
-async function apiCall(endpoint: string, options: any = {}, retries: number = 2): Promise<any> {
+// Enhanced API call helper with retry logic and better error handling
+async function apiCall(endpoint: string, options: any = {}, retries: number = 3): Promise<any> {
   const url = `${API_BASE_URL}${endpoint}`;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, {
-        timeout: 15000, // Reduced timeout from 30s to 15s
+        timeout: 30000, // 30 second timeout
         ...options,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${API_KEY}`,
-          'User-Agent': 'Templation-MCP-Server/2.0.1-patched',
+          'User-Agent': 'Templation-MCP-Server/2.0.0',
           ...options.headers,
         },
       });
@@ -75,25 +72,22 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
       if (!response.ok) {
         const errorText = await response.text();
         
-        // Handle specific error cases - NO RETRY for auth failures
-        if (response.status === 401 || response.status === 403) {
-          const errorMsg = response.status === 401 ? 
-            'Authentication failed. Please check your API key at https://templation.up.railway.app/api-keys' :
-            'Access forbidden. Your API key may not have sufficient permissions.';
-          
-          // Don't retry auth failures - fail immediately
-          throw new Error(errorMsg);
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error(`Authentication failed. Please check your API key at https://templation.up.railway.app/api-keys`);
+        } else if (response.status === 403) {
+          throw new Error(`Access forbidden. Your API key may not have sufficient permissions.`);
         } else if (response.status === 429) {
           if (attempt < retries) {
-            // Reduced wait time for rate limits
-            await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+            // Wait before retry on rate limit
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             continue;
           }
           throw new Error(`Rate limit exceeded. Please try again in a few minutes.`);
         } else if (response.status >= 500) {
           if (attempt < retries) {
-            // Reduced wait time for server errors
-            await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+            // Retry on server errors
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             continue;
           }
           throw new Error(`Server error (${response.status}). Please try again later.`);
@@ -109,11 +103,6 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         return await response.text();
       }
     } catch (error) {
-      // Don't retry auth failures
-      if (error instanceof Error && (error.message.includes('Authentication failed') || error.message.includes('Access forbidden'))) {
-        throw error;
-      }
-      
       if (attempt === retries) {
         if (error instanceof Error) {
           throw error;
@@ -121,8 +110,8 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         throw new Error(`API call failed: ${String(error)}`);
       }
       
-      // Reduced wait time before retry
-      await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
   }
 }
@@ -417,7 +406,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           let searchResult = getCached(cacheKey);
           
           if (!searchResult) {
-            searchResult = await apiCall('/api/search/exemplar', {
+            searchResult = await apiCall('/api/search-exemplar', {
               method: 'POST',
               body: JSON.stringify({
                 description,
@@ -529,7 +518,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           const startTime = Date.now();
           
-          const conversionResult = await apiCall('/api/template/convert', {
+          const conversionResult = await apiCall('/api/template-converter', {
             method: 'POST',
             body: JSON.stringify({
               repo_url: repo_url.trim(),
@@ -868,34 +857,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-// Validate API key on startup
-async function validateApiKey(): Promise<boolean> {
-  try {
-    console.error('🔐 Validating API key...');
-    await apiCall('/health');
-    console.error('✅ API key validation successful');
-    return true;
-  } catch (error) {
-    console.error('❌ API key validation failed:', error instanceof Error ? error.message : 'Unknown error');
-    return false;
-  }
-}
-
 async function main() {
-  // Validate API key on startup
-  const isValid = await validateApiKey();
-  if (!isValid) {
-    console.error('❌ API key validation failed. Server will not start.');
-    console.error('📋 Please check your API key at: https://templation.up.railway.app/api-keys');
-    console.error('💡 Set TEMPLATION_API_KEY environment variable with a valid key');
-    process.exit(1);
-  }
-
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('🚀 Templation MCP Server v2.0.1-patched running on stdio');
-  console.error('✅ API key validated successfully');
-  console.error('📋 Manage API keys: https://templation.up.railway.app/api-keys');
+  console.error('🚀 Templation MCP Server v2.0.0 running on stdio');
+  console.error('📋 Get your API key: https://templation.up.railway.app/api-keys');
   console.error('🌐 Web Dashboard: https://templation.up.railway.app/dashboard');
 }
 

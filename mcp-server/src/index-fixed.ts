@@ -13,15 +13,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Parse command line arguments or environment variables
-const args = process.argv.slice(2);
-const API_KEY = args[0] || process.env.TEMPLATION_API_KEY;
+// Configuration with fallbacks
 const API_BASE_URL = process.env.TEMPLATION_API_URL || 'https://templation-api.up.railway.app';
+const API_KEY = process.env.TEMPLATION_API_KEY;
 
 if (!API_KEY) {
-  console.error('❌ TEMPLATION_API_KEY is required');
-  console.error('📋 Usage: mcp-server <your-api-key>');
-  console.error('📋 Or set TEMPLATION_API_KEY environment variable');
+  console.error('❌ TEMPLATION_API_KEY environment variable is required');
   console.error('📋 Get your API key at: https://templation.up.railway.app/api-keys');
   process.exit(1);
 }
@@ -29,10 +26,15 @@ if (!API_KEY) {
 // Simple in-memory cache for performance
 const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
+// Track auth failures to prevent infinite retries
+let authFailureCount = 0;
+const MAX_AUTH_FAILURES = 3;
+let apiKeyValidated = false;
+
 const server = new Server(
   {
     name: 'templation',
-    version: '2.0.0',
+    version: '2.0.1-fixed',
   },
   {
     capabilities: {
@@ -59,6 +61,11 @@ function setCache(key: string, data: any, ttlMs: number = 300000): void { // 5 m
 async function apiCall(endpoint: string, options: any = {}, retries: number = 2): Promise<any> {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Fast failure if we've had too many auth failures
+  if (authFailureCount >= MAX_AUTH_FAILURES && !apiKeyValidated) {
+    throw new Error(`Authentication repeatedly failed. Please check your API key at https://templation.up.railway.app/api-keys`);
+  }
+  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, {
@@ -67,7 +74,7 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${API_KEY}`,
-          'User-Agent': 'Templation-MCP-Server/2.0.1-patched',
+          'User-Agent': 'Templation-MCP-Server/2.0.1-fixed',
           ...options.headers,
         },
       });
@@ -77,6 +84,9 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         
         // Handle specific error cases - NO RETRY for auth failures
         if (response.status === 401 || response.status === 403) {
+          authFailureCount++;
+          apiKeyValidated = false;
+          
           const errorMsg = response.status === 401 ? 
             'Authentication failed. Please check your API key at https://templation.up.railway.app/api-keys' :
             'Access forbidden. Your API key may not have sufficient permissions.';
@@ -86,14 +96,14 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         } else if (response.status === 429) {
           if (attempt < retries) {
             // Reduced wait time for rate limits
-            await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
             continue;
           }
           throw new Error(`Rate limit exceeded. Please try again in a few minutes.`);
         } else if (response.status >= 500) {
           if (attempt < retries) {
             // Reduced wait time for server errors
-            await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
             continue;
           }
           throw new Error(`Server error (${response.status}). Please try again later.`);
@@ -101,6 +111,10 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
         
         throw new Error(`API call failed (${response.status}): ${errorText}`);
       }
+
+      // Success - reset auth failure counter
+      authFailureCount = 0;
+      apiKeyValidated = true;
 
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -122,8 +136,21 @@ async function apiCall(endpoint: string, options: any = {}, retries: number = 2)
       }
       
       // Reduced wait time before retry
-      await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
     }
+  }
+}
+
+// Validate API key on startup
+async function validateApiKey(): Promise<boolean> {
+  try {
+    console.error('🔐 Validating API key...');
+    await apiCall('/health');
+    console.error('✅ API key validation successful');
+    return true;
+  } catch (error) {
+    console.error('❌ API key validation failed:', error instanceof Error ? error.message : 'Unknown error');
+    return false;
   }
 }
 
@@ -157,6 +184,18 @@ function formatRepoResult(repo: any, index: number): string {
          `   ${difficultyEmoji} Difficulty: ${difficulty}\n` +
          `   ${repo.demo_url ? `🌐 Demo: ${repo.demo_url}\n` : ''}` +
          `   ${repo.screenshot_url ? `📸 Preview available\n` : ''}`;
+}
+
+// Return error response helper
+function errorResponse(message: string): any {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: message,
+      },
+    ],
+  };
 }
 
 // List available tools with enhanced descriptions
@@ -315,7 +354,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
-// Handle tool calls with enhanced functionality
+// Handle tool calls with enhanced functionality and fast failure
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
@@ -329,14 +368,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         // Validate inputs
         if (!query.trim()) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Please provide a search query.\n\n💡 **Examples:**\n• "React portfolio"\n• "FastAPI authentication"\n• "e-commerce"\n• "dashboard"`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Please provide a search query.\n\n💡 **Examples:**\n• "React portfolio"\n• "FastAPI authentication"\n• "e-commerce"\n• "dashboard"`);
         }
 
         const clampedLimit = Math.max(1, Math.min(50, limit));
@@ -352,14 +384,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
           
           if (!templates || templates.length === 0) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `🔍 No templates found for "${query}"\n\n💡 **Try:**\n• Different keywords (e.g., "React" instead of "ReactJS")\n• Broader terms (e.g., "web app" instead of "specific framework")\n• Technology names (e.g., "Python", "TypeScript", "Vue")\n\n🌐 **Create your first template:**\n1. Use \`search_exemplar\` to find a good repository\n2. Use \`template_converter\` to convert it\n3. Or visit https://templation.up.railway.app/templates`,
-                },
-              ],
-            };
+            return errorResponse(`🔍 No templates found for "${query}"\n\n💡 **Try:**\n• Different keywords (e.g., "React" instead of "ReactJS")\n• Broader terms (e.g., "web app" instead of "specific framework")\n• Technology names (e.g., "Python", "TypeScript", "Vue")\n\n🌐 **Create your first template:**\n1. Use \`search_exemplar\` to find a good repository\n2. Use \`template_converter\` to convert it\n3. Or visit https://templation.up.railway.app/templates`);
           }
 
           const formattedResults = templates.map((template: any, index: number) => 
@@ -377,14 +402,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         } catch (error) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Error searching templates: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your API key at https://templation.up.railway.app/api-keys\n• Ensure you have created some templates first\n• Try a simpler search query\n• Check your internet connection`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Error searching templates: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your API key at https://templation.up.railway.app/api-keys\n• Ensure you have created some templates first\n• Try a simpler search query\n• Check your internet connection`);
         }
       }
 
@@ -400,14 +418,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Validate inputs
         if (!description.trim()) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Please provide a description of what you want to build.\n\n💡 **Good examples:**\n• "React e-commerce website with Stripe payments"\n• "Python FastAPI with JWT authentication"\n• "Vue.js dashboard with real-time charts"\n• "Next.js blog with dark mode"\n• "Express.js REST API with MongoDB"`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Please provide a description of what you want to build.\n\n💡 **Good examples:**\n• "React e-commerce website with Stripe payments"\n• "Python FastAPI with JWT authentication"\n• "Vue.js dashboard with real-time charts"\n• "Next.js blog with dark mode"\n• "Express.js REST API with MongoDB"`);
         }
 
         const cacheKey = `search_exemplar:${description}:${JSON.stringify(filters || {})}`;
@@ -417,7 +428,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           let searchResult = getCached(cacheKey);
           
           if (!searchResult) {
-            searchResult = await apiCall('/api/search/exemplar', {
+            searchResult = await apiCall('/api/search-exemplar', {
               method: 'POST',
               body: JSON.stringify({
                 description,
@@ -433,14 +444,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               .map(([key, value]) => `${key}: ${value}`)
               .join(', ') : '';
             
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `🔍 No repositories found for "${description}"${filterText ? ` with filters (${filterText})` : ''}\n\n💡 **Try:**\n• Broader search terms (e.g., "React app" instead of "React e-commerce with Stripe and dark mode")\n• Different keywords (e.g., "web scraper" instead of "data extraction tool")\n• Remove or relax filters\n• Popular tech combinations (e.g., "MERN stack", "JAMstack", "MEAN stack")\n\n🌟 **Popular searches:**\n• "React portfolio website"\n• "Python web scraper"\n• "Node.js REST API"\n• "Vue dashboard"\n• "Flutter mobile app"`,
-                },
-              ],
-            };
+            return errorResponse(`🔍 No repositories found for "${description}"${filterText ? ` with filters (${filterText})` : ''}\n\n💡 **Try:**\n• Broader search terms (e.g., "React app" instead of "React e-commerce with Stripe and dark mode")\n• Different keywords (e.g., "web scraper" instead of "data extraction tool")\n• Remove or relax filters\n• Popular tech combinations (e.g., "MERN stack", "JAMstack", "MEAN stack")\n\n🌟 **Popular searches:**\n• "React portfolio website"\n• "Python web scraper"\n• "Node.js REST API"\n• "Vue dashboard"\n• "Flutter mobile app"`);
           }
 
           const formattedResults = searchResult.repos.map((repo: any, index: number) => 
@@ -466,14 +470,190 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         } catch (error) {
+          return errorResponse(`❌ Error searching repositories: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **This might be due to:**\n• GitHub API rate limits (try again in a few minutes)\n• Network connectivity issues\n• Invalid search parameters\n• Temporary service unavailability\n\n💡 **Try:**\n• Simpler search terms\n• Removing filters temporarily\n• Waiting a few minutes and trying again`);
+        }
+      }
+
+      case 'get_user_info': {
+        const { include_stats = true } = args as { include_stats?: boolean };
+        
+        try {
+          const userInfo = await apiCall('/api/users/me') as any;
+          let stats = null;
+          
+          if (include_stats) {
+            try {
+              stats = await apiCall('/api/users/dashboard/stats') as any;
+            } catch (e) {
+              // Stats are optional, continue without them
+            }
+          }
+          
+          let result = `👤 **User Account Information**\n\n`;
+          result += `**Name:** ${userInfo.name || 'Not provided'}\n`;
+          result += `**Email:** ${userInfo.email || 'Not provided'}\n`;
+          result += `**GitHub:** ${userInfo.github_username ? `@${userInfo.github_username} ✅` : '❌ Not connected'}\n`;
+          result += `**Account Created:** ${userInfo.created_at ? new Date(userInfo.created_at).toLocaleDateString() : 'Unknown'}\n`;
+          
+          if (!userInfo.github_connected) {
+            result += `\n🔗 **Connect GitHub:** Visit https://templation.up.railway.app/account to connect your GitHub account for better template analysis\n`;
+          }
+          
+          if (stats) {
+            result += `\n📊 **Account Statistics:**\n`;
+            result += `• Templates: ${stats.total_templates || 0}\n`;
+            result += `• Repositories Analyzed: ${stats.repositories_analyzed || 0}\n`;
+            result += `• Favorites: ${stats.favorites || 0}\n`;
+            result += `• Recent Activity: ${stats.recent_activity || 0} templates this week\n`;
+            result += `• API Keys: ${stats.active_api_keys || 0} active\n`;
+          }
+          
+          result += `\n🌐 **Quick Links:**\n`;
+          result += `• Dashboard: https://templation.up.railway.app/dashboard\n`;
+          result += `• Templates: https://templation.up.railway.app/templates\n`;
+          result += `• Account Settings: https://templation.up.railway.app/account\n`;
+          result += `• API Keys: https://templation.up.railway.app/api-keys`;
+          
           return {
             content: [
               {
                 type: 'text',
-                text: `❌ Error searching repositories: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **This might be due to:**\n• GitHub API rate limits (try again in a few minutes)\n• Network connectivity issues\n• Invalid search parameters\n• Temporary service unavailability\n\n💡 **Try:**\n• Simpler search terms\n• Removing filters temporarily\n• Waiting a few minutes and trying again`,
+                text: result,
               },
             ],
           };
+        } catch (error) {
+          return errorResponse(`❌ Error getting user info: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your API key at https://templation.up.railway.app/api-keys\n• Ensure your API key has the correct permissions\n• Try refreshing your API key if it's old\n\n💡 **Need help?** Visit https://templation.up.railway.app/account`);
+        }
+      }
+
+      case 'get_dashboard_stats': {
+        const { include_recent_activity = false } = args as { include_recent_activity?: boolean };
+        
+        try {
+          const stats = await apiCall('/api/users/dashboard/stats') as any;
+          
+          let result = `📊 **Dashboard Statistics**\n\n`;
+          result += `**📁 Total Templates:** ${stats.total_templates || 0}\n`;
+          result += `**🔍 Repositories Analyzed:** ${stats.repositories_analyzed || 0}\n`;
+          result += `**⭐ Favorite Templates:** ${stats.favorites || 0}\n`;
+          result += `**📈 Recent Activity:** ${stats.recent_activity || 0} templates this week\n`;
+          result += `**🔑 Active API Keys:** ${stats.active_api_keys || 0}\n`;
+          
+          if (stats.most_used_technologies?.length > 0) {
+            result += `**🛠️ Top Technologies:** ${stats.most_used_technologies.slice(0, 5).join(', ')}\n`;
+          }
+          
+          if (stats.total_templates === 0) {
+            result += `\n💡 **Get started:**\n`;
+            result += `1. Use \`search_exemplar\` to find interesting repositories\n`;
+            result += `2. Use \`template_converter\` to create your first template\n`;
+            result += `3. Visit https://templation.up.railway.app/templates to manage templates\n`;
+          } else {
+            result += `\n🎯 **Quick actions:**\n`;
+            result += `• Use \`search_templates\` to find your templates\n`;
+            result += `• Use \`template_converter\` to create more templates\n`;
+            result += `• Visit https://templation.up.railway.app/dashboard for detailed analytics\n`;
+          }
+          
+          if (include_recent_activity && stats.recent_templates?.length > 0) {
+            result += `\n📋 **Recent Templates:**\n`;
+            stats.recent_templates.slice(0, 5).forEach((template: any, index: number) => {
+              result += `${index + 1}. ${template.name} (${new Date(template.created_at).toLocaleDateString()})\n`;
+            });
+          }
+          
+          result += `\n🌐 **View full dashboard:** https://templation.up.railway.app/dashboard`;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: result,
+              },
+            ],
+          };
+        } catch (error) {
+          return errorResponse(`❌ Error getting dashboard stats: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **This might be due to:**\n• API key authentication issues\n• Temporary service unavailability\n• Network connectivity problems\n\n💡 **Try:**\n• Checking your API key at https://templation.up.railway.app/api-keys\n• Waiting a moment and trying again\n• Visiting the web dashboard at https://templation.up.railway.app/dashboard`);
+        }
+      }
+
+      case 'get_template_details': {
+        const { template_id, include_setup_guide = true } = args as {
+          template_id: string;
+          include_setup_guide?: boolean;
+        };
+        
+        if (!template_id?.trim()) {
+          return errorResponse(`❌ Please provide a template ID.\n\n💡 **Get template IDs from:**\n• \`search_templates\` results\n• Template conversion results\n• Web dashboard at https://templation.up.railway.app/templates`);
+        }
+        
+        try {
+          const template = await apiCall(`/api/templates/${template_id}`) as any;
+          
+          let result = `📋 **Template Details**\n\n`;
+          result += `**Name:** ${template.name}\n`;
+          result += `**Description:** ${template.description || 'No description'}\n`;
+          result += `**Source Repository:** ${template.source_repo_url}\n`;
+          result += `**Created:** ${template.created_at ? new Date(template.created_at).toLocaleDateString() : 'Unknown'}\n`;
+          result += `**Usage Count:** ${template.usage_count || 0} times\n`;
+          result += `**Last Used:** ${template.last_used ? new Date(template.last_used).toLocaleDateString() : 'Never'}\n`;
+          result += `**Favorite:** ${template.is_favorite ? '⭐ Yes' : '❌ No'}\n`;
+          
+          if (template.tech_stack?.length > 0) {
+            result += `**Technologies:** ${template.tech_stack.join(', ')}\n`;
+          }
+          
+          if (include_setup_guide && template.template_data) {
+            const data = template.template_data;
+            
+            if (data.conversion_steps?.length > 0) {
+              result += `\n## 📋 Setup Instructions\n`;
+              data.conversion_steps.forEach((step: string, index: number) => {
+                result += `${index + 1}. ${step}\n`;
+              });
+            }
+            
+            if (data.setup_commands?.length > 0) {
+              result += `\n## 🚀 Setup Commands\n\`\`\`bash\n`;
+              data.setup_commands.forEach((command: string) => {
+                result += `${command}\n`;
+              });
+              result += `\`\`\`\n`;
+            }
+            
+            if (data.files_to_modify?.length > 0) {
+              result += `\n## 📝 Files to Customize\n`;
+              data.files_to_modify.forEach((file: string) => {
+                result += `• \`${file}\`\n`;
+              });
+            }
+            
+            if (data.customization_points?.length > 0) {
+              result += `\n## 🎨 Customization Points\n`;
+              data.customization_points.forEach((point: string) => {
+                result += `• ${point}\n`;
+              });
+            }
+            
+            if (data.expected_outcome) {
+              result += `\n## 🎯 Expected Outcome\n${data.expected_outcome}\n`;
+            }
+          }
+          
+          result += `\n🌐 **Web View:** https://templation.up.railway.app/templates/${template_id}\n`;
+          result += `🔗 **Source Code:** ${template.source_repo_url}`;
+          
+          return {
+            content: [
+              {
+                type: 'text',
+                text: result,
+              },
+            ],
+          };
+        } catch (error) {
+          return errorResponse(`❌ Error getting template details: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Possible issues:**\n• Template ID not found or invalid\n• Template may have been deleted\n• API key doesn't have access to this template\n• Temporary service issue\n\n💡 **Try:**\n• Using \`search_templates\` to find the correct template ID\n• Checking the template exists at https://templation.up.railway.app/templates\n• Verifying your API key permissions`);
         }
       }
 
@@ -492,44 +672,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Enhanced validation
         if (!repo_url.trim()) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Please provide a GitHub repository URL.\n\n💡 **Format:** https://github.com/owner/repository\n**Examples:**\n• https://github.com/vercel/next.js\n• https://github.com/fastapi/fastapi\n• https://github.com/vuejs/vue`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Please provide a GitHub repository URL.\n\n💡 **Format:** https://github.com/owner/repository\n**Examples:**\n• https://github.com/vercel/next.js\n• https://github.com/fastapi/fastapi\n• https://github.com/vuejs/vue`);
         }
 
         if (!template_description.trim()) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Please provide a description of how you want to customize this template.\n\n💡 **Good examples:**\n• "Portfolio website for a data scientist with project showcases"\n• "E-commerce site for handmade jewelry with payment integration"\n• "Task management app for small teams with real-time collaboration"\n• "Blog platform for tech writers with syntax highlighting"`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Please provide a description of how you want to customize this template.\n\n💡 **Good examples:**\n• "Portfolio website for a data scientist with project showcases"\n• "E-commerce site for handmade jewelry with payment integration"\n• "Task management app for small teams with real-time collaboration"\n• "Blog platform for tech writers with syntax highlighting"`);
         }
 
         // Validate GitHub URL format
         const githubUrlPattern = /^https:\/\/github\.com\/[^\/]+\/[^\/]+\/?$/;
         if (!githubUrlPattern.test(repo_url.trim())) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Invalid GitHub URL format.\n\n✅ **Correct format:** https://github.com/owner/repository\n❌ **Your input:** ${repo_url}\n\n💡 **Make sure to:**\n• Include the full URL starting with https://github.com/\n• Use the main repository URL (not a specific file or branch)\n• Ensure the repository is publicly accessible`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Invalid GitHub URL format.\n\n✅ **Correct format:** https://github.com/owner/repository\n❌ **Your input:** ${repo_url}\n\n💡 **Make sure to:**\n• Include the full URL starting with https://github.com/\n• Use the main repository URL (not a specific file or branch)\n• Ensure the repository is publicly accessible`);
         }
 
         try {
           const startTime = Date.now();
           
-          const conversionResult = await apiCall('/api/template/convert', {
+          const conversionResult = await apiCall('/api/template-converter', {
             method: 'POST',
             body: JSON.stringify({
               repo_url: repo_url.trim(),
@@ -625,225 +784,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Template conversion failed: ${errorMessage}\n\n🔧 **Common issues:**\n• **Invalid URL:** Make sure the GitHub repository URL is correct and publicly accessible\n• **Private repository:** The repository must be public or you need access\n• **Repository not found:** Check if the repository exists and hasn't been renamed\n• **Rate limits:** GitHub API limits may be exceeded, try again in a few minutes\n• **Large repository:** Very large repositories may take longer to process\n\n💡 **Tips:**\n• Use popular, well-maintained repositories for better results\n• Ensure the repository has a clear structure and documentation\n• Try repositories with fewer than 10,000 files for faster processing\n\n🌐 **Get help:** Visit https://templation.up.railway.app/account for support`,
-              },
-            ],
-          };
-        }
-      }
-
-      case 'get_user_info': {
-        const { include_stats = true } = args as { include_stats?: boolean };
-        
-        try {
-          const userInfo = await apiCall('/api/users/me') as any;
-          let stats = null;
-          
-          if (include_stats) {
-            try {
-              stats = await apiCall('/api/users/dashboard/stats') as any;
-            } catch (e) {
-              // Stats are optional, continue without them
-            }
-          }
-          
-          let result = `👤 **User Account Information**\n\n`;
-          result += `**Name:** ${userInfo.name || 'Not provided'}\n`;
-          result += `**Email:** ${userInfo.email || 'Not provided'}\n`;
-          result += `**GitHub:** ${userInfo.github_username ? `@${userInfo.github_username} ✅` : '❌ Not connected'}\n`;
-          result += `**Account Created:** ${userInfo.created_at ? new Date(userInfo.created_at).toLocaleDateString() : 'Unknown'}\n`;
-          
-          if (!userInfo.github_connected) {
-            result += `\n🔗 **Connect GitHub:** Visit https://templation.up.railway.app/account to connect your GitHub account for better template analysis\n`;
-          }
-          
-          if (stats) {
-            result += `\n📊 **Account Statistics:**\n`;
-            result += `• Templates: ${stats.total_templates || 0}\n`;
-            result += `• Repositories Analyzed: ${stats.repositories_analyzed || 0}\n`;
-            result += `• Favorites: ${stats.favorites || 0}\n`;
-            result += `• Recent Activity: ${stats.recent_activity || 0} templates this week\n`;
-            result += `• API Keys: ${stats.active_api_keys || 0} active\n`;
-          }
-          
-          result += `\n🌐 **Quick Links:**\n`;
-          result += `• Dashboard: https://templation.up.railway.app/dashboard\n`;
-          result += `• Templates: https://templation.up.railway.app/templates\n`;
-          result += `• Account Settings: https://templation.up.railway.app/account\n`;
-          result += `• API Keys: https://templation.up.railway.app/api-keys`;
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: result,
-              },
-            ],
-          };
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Error getting user info: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Troubleshooting:**\n• Check your API key at https://templation.up.railway.app/api-keys\n• Ensure your API key has the correct permissions\n• Try refreshing your API key if it's old\n\n💡 **Need help?** Visit https://templation.up.railway.app/account`,
-              },
-            ],
-          };
-        }
-      }
-
-      case 'get_dashboard_stats': {
-        const { include_recent_activity = false } = args as { include_recent_activity?: boolean };
-        
-        try {
-          const stats = await apiCall('/api/users/dashboard/stats') as any;
-          
-          let result = `📊 **Dashboard Statistics**\n\n`;
-          result += `**📁 Total Templates:** ${stats.total_templates || 0}\n`;
-          result += `**🔍 Repositories Analyzed:** ${stats.repositories_analyzed || 0}\n`;
-          result += `**⭐ Favorite Templates:** ${stats.favorites || 0}\n`;
-          result += `**📈 Recent Activity:** ${stats.recent_activity || 0} templates this week\n`;
-          result += `**🔑 Active API Keys:** ${stats.active_api_keys || 0}\n`;
-          
-          if (stats.most_used_technologies?.length > 0) {
-            result += `**🛠️ Top Technologies:** ${stats.most_used_technologies.slice(0, 5).join(', ')}\n`;
-          }
-          
-          if (stats.total_templates === 0) {
-            result += `\n💡 **Get started:**\n`;
-            result += `1. Use \`search_exemplar\` to find interesting repositories\n`;
-            result += `2. Use \`template_converter\` to create your first template\n`;
-            result += `3. Visit https://templation.up.railway.app/templates to manage templates\n`;
-          } else {
-            result += `\n🎯 **Quick actions:**\n`;
-            result += `• Use \`search_templates\` to find your templates\n`;
-            result += `• Use \`template_converter\` to create more templates\n`;
-            result += `• Visit https://templation.up.railway.app/dashboard for detailed analytics\n`;
-          }
-          
-          if (include_recent_activity && stats.recent_templates?.length > 0) {
-            result += `\n📋 **Recent Templates:**\n`;
-            stats.recent_templates.slice(0, 5).forEach((template: any, index: number) => {
-              result += `${index + 1}. ${template.name} (${new Date(template.created_at).toLocaleDateString()})\n`;
-            });
-          }
-          
-          result += `\n🌐 **View full dashboard:** https://templation.up.railway.app/dashboard`;
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: result,
-              },
-            ],
-          };
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Error getting dashboard stats: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **This might be due to:**\n• API key authentication issues\n• Temporary service unavailability\n• Network connectivity problems\n\n💡 **Try:**\n• Checking your API key at https://templation.up.railway.app/api-keys\n• Waiting a moment and trying again\n• Visiting the web dashboard at https://templation.up.railway.app/dashboard`,
-              },
-            ],
-          };
-        }
-      }
-
-      case 'get_template_details': {
-        const { template_id, include_setup_guide = true } = args as {
-          template_id: string;
-          include_setup_guide?: boolean;
-        };
-        
-        if (!template_id?.trim()) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Please provide a template ID.\n\n💡 **Get template IDs from:**\n• \`search_templates\` results\n• Template conversion results\n• Web dashboard at https://templation.up.railway.app/templates`,
-              },
-            ],
-          };
-        }
-        
-        try {
-          const template = await apiCall(`/api/templates/${template_id}`) as any;
-          
-          let result = `📋 **Template Details**\n\n`;
-          result += `**Name:** ${template.name}\n`;
-          result += `**Description:** ${template.description || 'No description'}\n`;
-          result += `**Source Repository:** ${template.source_repo_url}\n`;
-          result += `**Created:** ${template.created_at ? new Date(template.created_at).toLocaleDateString() : 'Unknown'}\n`;
-          result += `**Usage Count:** ${template.usage_count || 0} times\n`;
-          result += `**Last Used:** ${template.last_used ? new Date(template.last_used).toLocaleDateString() : 'Never'}\n`;
-          result += `**Favorite:** ${template.is_favorite ? '⭐ Yes' : '❌ No'}\n`;
-          
-          if (template.tech_stack?.length > 0) {
-            result += `**Technologies:** ${template.tech_stack.join(', ')}\n`;
-          }
-          
-          if (include_setup_guide && template.template_data) {
-            const data = template.template_data;
-            
-            if (data.conversion_steps?.length > 0) {
-              result += `\n## 📋 Setup Instructions\n`;
-              data.conversion_steps.forEach((step: string, index: number) => {
-                result += `${index + 1}. ${step}\n`;
-              });
-            }
-            
-            if (data.setup_commands?.length > 0) {
-              result += `\n## 🚀 Setup Commands\n\`\`\`bash\n`;
-              data.setup_commands.forEach((command: string) => {
-                result += `${command}\n`;
-              });
-              result += `\`\`\`\n`;
-            }
-            
-            if (data.files_to_modify?.length > 0) {
-              result += `\n## 📝 Files to Customize\n`;
-              data.files_to_modify.forEach((file: string) => {
-                result += `• \`${file}\`\n`;
-              });
-            }
-            
-            if (data.customization_points?.length > 0) {
-              result += `\n## 🎨 Customization Points\n`;
-              data.customization_points.forEach((point: string) => {
-                result += `• ${point}\n`;
-              });
-            }
-            
-            if (data.expected_outcome) {
-              result += `\n## 🎯 Expected Outcome\n${data.expected_outcome}\n`;
-            }
-          }
-          
-          result += `\n🌐 **Web View:** https://templation.up.railway.app/templates/${template_id}\n`;
-          result += `🔗 **Source Code:** ${template.source_repo_url}`;
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: result,
-              },
-            ],
-          };
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `❌ Error getting template details: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔧 **Possible issues:**\n• Template ID not found or invalid\n• Template may have been deleted\n• API key doesn't have access to this template\n• Temporary service issue\n\n💡 **Try:**\n• Using \`search_templates\` to find the correct template ID\n• Checking the template exists at https://templation.up.railway.app/templates\n• Verifying your API key permissions`,
-              },
-            ],
-          };
+          return errorResponse(`❌ Template conversion failed: ${errorMessage}\n\n🔧 **Common issues:**\n• **Invalid URL:** Make sure the GitHub repository URL is correct and publicly accessible\n• **Private repository:** The repository must be public or you need access\n• **Repository not found:** Check if the repository exists and hasn't been renamed\n• **Rate limits:** GitHub API limits may be exceeded, try again in a few minutes\n• **Large repository:** Very large repositories may take longer to process\n\n💡 **Tips:**\n• Use popular, well-maintained repositories for better results\n• Ensure the repository has a clear structure and documentation\n• Try repositories with fewer than 10,000 files for faster processing\n\n🌐 **Get help:** Visit https://templation.up.railway.app/account for support`);
         }
       }
 
@@ -868,32 +809,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-// Validate API key on startup
-async function validateApiKey(): Promise<boolean> {
-  try {
-    console.error('🔐 Validating API key...');
-    await apiCall('/health');
-    console.error('✅ API key validation successful');
-    return true;
-  } catch (error) {
-    console.error('❌ API key validation failed:', error instanceof Error ? error.message : 'Unknown error');
-    return false;
-  }
-}
-
 async function main() {
   // Validate API key on startup
   const isValid = await validateApiKey();
   if (!isValid) {
     console.error('❌ API key validation failed. Server will not start.');
     console.error('📋 Please check your API key at: https://templation.up.railway.app/api-keys');
-    console.error('💡 Set TEMPLATION_API_KEY environment variable with a valid key');
     process.exit(1);
   }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('🚀 Templation MCP Server v2.0.1-patched running on stdio');
+  console.error('🚀 Templation MCP Server v2.0.1-fixed running on stdio');
   console.error('✅ API key validated successfully');
   console.error('📋 Manage API keys: https://templation.up.railway.app/api-keys');
   console.error('🌐 Web Dashboard: https://templation.up.railway.app/dashboard');

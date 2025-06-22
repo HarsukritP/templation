@@ -42,16 +42,27 @@ npm install -g @templation/mcp-server
 
 Visit [templation.up.railway.app/api-keys](https://templation.up.railway.app/api-keys) to generate your API key.
 
-### 3. Configure Cursor
+### 3. Configure Cursor/Claude Desktop
 
-Add to your Cursor MCP settings (`~/.cursor-mcp/config.json`):
+Add to your MCP configuration file:
 
+**For Cursor** (`~/.cursor-mcp/config.json`):
 ```json
 {
-    "templation": {
+  "templation": {
     "command": "mcp-server",
-      "env": {
-      "TEMPLATION_API_KEY": "your-api-key-here"
+    "args": ["your-api-key-here"]
+  }
+}
+```
+
+**For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "templation": {
+      "command": "mcp-server",
+      "args": ["your-api-key-here"]
     }
   }
 }
