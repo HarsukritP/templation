@@ -225,7 +225,7 @@ export default function HomePage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Button size="lg" className="text-lg px-8">
+              <Button size="lg" className="text-lg py-10 px-8">
                 Start Building Templates
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
