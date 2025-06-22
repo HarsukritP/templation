@@ -713,9 +713,10 @@ def extract_repo_name_from_url(url: str) -> str:
 async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offset: int = 0) -> List[TemplateSchema]:
     """Get all public templates for the marketplace"""
     try:
-        # Simplified query without JOIN for debugging
+        # Query for public templates with user information
         query = (
-            select(TemplateModel)
+            select(TemplateModel, UserModel.name.label('creator_name'))
+            .outerjoin(UserModel, TemplateModel.user_id == UserModel.id)
             .where(TemplateModel.is_public == True)
             .order_by(TemplateModel.created_at.desc())
             .offset(offset)
@@ -725,11 +726,14 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
             query = query.limit(limit)
             
         result = await db.execute(query)
-        db_templates = result.scalars().all()
+        rows = result.all()
         
         # Convert to Pydantic models
         templates = []
-        for db_template in db_templates:
+        for row in rows:
+            db_template = row[0]
+            creator_name = row[1] if row[1] else "Anonymous"
+            
             template = TemplateSchema(
                 id=db_template.id,
                 user_id=db_template.user_id,
@@ -739,16 +743,17 @@ async def get_public_templates(db: AsyncSession, limit: Optional[int] = 50, offs
                 template_data=db_template.template_data,
                 tech_stack=db_template.tags or [],
                 is_public=getattr(db_template, 'is_public', False),
+                creator_name=creator_name,
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             )
-            # Add creator name as metadata (simplified for now)
-            template.creator_name = "Community Contributor"
             templates.append(template)
         
         return templates
     except Exception as e:
         print(f"Error getting public templates: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 async def search_public_templates(query: str, db: AsyncSession, limit: Optional[int] = 20) -> List[TemplateSchema]:
@@ -787,10 +792,10 @@ async def search_public_templates(query: str, db: AsyncSession, limit: Optional[
                 template_data=db_template.template_data,
                 tech_stack=db_template.tags or [],
                 is_public=getattr(db_template, 'is_public', False),
+                creator_name=creator_name,
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
             )
-            template.creator_name = creator_name
             templates.append(template)
         
         return templates

@@ -29,6 +29,7 @@ class Template(BaseModel):
     screenshot_url: Optional[str] = None
     tech_stack: List[str] = []
     is_public: bool = False
+    creator_name: Optional[str] = None  # For marketplace display
     created_at: datetime
     last_used: Optional[datetime] = None
 
