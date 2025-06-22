@@ -34,8 +34,8 @@ def _set_cache(key: str, data: Any):
     """Cache response with timestamp"""
     _cache[key] = (data, datetime.now().timestamp())
 
-async def search_github_repos(description: str, filters: Optional[SearchFilters] = None) -> List[RepoResult]:
-    """Search GitHub repositories with enhanced filtering and analysis"""
+async def search_github_repos_simple(description: str, filters: Optional[SearchFilters] = None) -> List[RepoResult]:
+    """Simplified GitHub repository search that doesn't make excessive API calls"""
     try:
         # Build comprehensive search query
         query_parts = [description]
@@ -78,7 +78,7 @@ async def search_github_repos(description: str, filters: Optional[SearchFilters]
                     "q": search_query,
                     "sort": "stars",
                     "order": "desc",
-                    "per_page": 15  # Get more results for better filtering
+                    "per_page": 10  # Reduced from 15
                 },
                 headers=headers
             )
@@ -92,26 +92,125 @@ async def search_github_repos(description: str, filters: Optional[SearchFilters]
             data = response.json()
             repos = []
             
-            # Process repositories with enhanced analysis
+            # Process repositories with minimal API calls
             for item in data.get("items", []):
                 try:
-                    repo = await process_repository_item(item, client, headers)
+                    repo = process_repository_item_simple(item)
                     if repo:
                         repos.append(repo)
                 except Exception as e:
                     print(f"Error processing repository {item.get('full_name', 'unknown')}: {e}")
                     continue
             
-            # Filter and sort results
-            filtered_repos = filter_and_rank_repos(repos, description, filters)
-            
             # Cache the results
-            _set_cache(cache_key, filtered_repos)
+            _set_cache(cache_key, repos)
             
-            return filtered_repos[:10]  # Return top 10 results
+            return repos[:10]  # Return top 10 results
     
     except Exception as e:
         raise Exception(f"GitHub search failed: {str(e)}")
+
+def process_repository_item_simple(item: Dict[str, Any]) -> Optional[RepoResult]:
+    """Process a single repository item without making additional API calls"""
+    try:
+        # Extract basic information
+        full_name = item["full_name"]
+        repo_url = item["html_url"]
+        
+        # Extract tech stack from available data only
+        tech_stack = []
+        if item.get("language"):
+            tech_stack.append(item["language"])
+        if item.get("topics"):
+            tech_stack.extend(item["topics"][:4])  # Add up to 4 topics
+        
+        # Simple difficulty determination based on stars and description
+        stars = item.get("stargazers_count", 0)
+        description = item.get("description", "").lower()
+        
+        if stars > 1000 or "advanced" in description or "complex" in description:
+            difficulty = "hard"
+        elif stars > 100 or "intermediate" in description:
+            difficulty = "medium"
+        else:
+            difficulty = "easy"
+        
+        # Generate visual summary from description
+        visual_summary = item.get("description", "No description available")
+        
+        # Extract demo URL from homepage
+        demo_url = item.get("homepage") if item.get("homepage") and "http" in item.get("homepage", "") else None
+        
+        # Generate screenshot URL
+        screenshot_url = f"https://opengraph.githubassets.com/1/{full_name}"
+        
+        # Calculate simple quality score
+        quality_score = calculate_simple_quality_score(item)
+        
+        repo = RepoResult(
+            name=full_name,
+            url=repo_url,
+            demo_url=demo_url,
+            screenshot_url=screenshot_url,
+            metrics=RepoMetrics(
+                stars=item["stargazers_count"],
+                forks=item["forks_count"],
+                updated=item["updated_at"],
+                issues=item.get("open_issues_count", 0),
+                watchers=item.get("watchers_count", 0)
+            ),
+            visual_summary=visual_summary,
+            tech_stack=tech_stack,
+            customization_difficulty=difficulty,
+            quality_score=quality_score,
+            relevance_score=0.0  # Will be set later if needed
+        )
+        
+        return repo
+    
+    except Exception as e:
+        print(f"Error processing repository item: {e}")
+        return None
+
+def calculate_simple_quality_score(item: Dict[str, Any]) -> float:
+    """Calculate a simple quality score without additional API calls"""
+    score = 0.0
+    
+    # Stars factor (logarithmic scale)
+    stars = item.get("stargazers_count", 0)
+    if stars > 0:
+        score += min(10, 2 * (stars ** 0.3))  # Max 10 points from stars
+    
+    # Forks factor
+    forks = item.get("forks_count", 0)
+    if forks > 0:
+        score += min(5, forks ** 0.2)  # Max 5 points from forks
+    
+    # Description factor
+    if item.get("description"):
+        score += 2
+    
+    # Recent activity factor
+    updated_at = datetime.fromisoformat(item["updated_at"].replace("Z", "+00:00"))
+    days_since_update = (datetime.now(updated_at.tzinfo) - updated_at).days
+    
+    if days_since_update < 30:
+        score += 5
+    elif days_since_update < 90:
+        score += 3
+    elif days_since_update < 365:
+        score += 1
+    
+    # License factor
+    if item.get("license"):
+        score += 2
+    
+    return min(20.0, score)  # Cap at 20 points
+
+# Replace the main function with the simplified version
+async def search_github_repos(description: str, filters: Optional[SearchFilters] = None) -> List[RepoResult]:
+    """Search GitHub repositories with enhanced filtering and analysis"""
+    return await search_github_repos_simple(description, filters)
 
 async def process_repository_item(item: Dict[str, Any], client: httpx.AsyncClient, headers: Dict[str, str]) -> Optional[RepoResult]:
     """Process a single repository item with enhanced analysis"""
@@ -153,7 +252,8 @@ async def process_repository_item(item: Dict[str, Any], client: httpx.AsyncClien
             visual_summary=visual_summary,
             tech_stack=tech_stack,
             customization_difficulty=difficulty,
-            quality_score=calculate_quality_score(item, repo_details)
+            quality_score=calculate_quality_score(item, repo_details),
+            relevance_score=0.0  # Will be set later in filter_and_rank_repos
         )
         
         return repo
