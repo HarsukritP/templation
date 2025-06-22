@@ -37,7 +37,7 @@ interface Repository {
 }
 
 export default function TemplatesPage() {
-  const { user } = useUser()
+  const { user, isLoading } = useUser()
   const [templates, setTemplates] = useState<Template[]>([])
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,10 +60,14 @@ export default function TemplatesPage() {
   }, [notification])
 
   useEffect(() => {
-    if (user) {
+    console.log('Templates page useEffect - user:', user, 'isLoading:', isLoading)
+    if (user && !isLoading) {
+      console.log('User authenticated, fetching data...')
       fetchData()
+    } else {
+      console.log('User not ready yet, waiting...')
     }
-  }, [user])
+  }, [user, isLoading])
 
   const fetchData = async () => {
     try {

@@ -116,9 +116,12 @@ export function setCurrentUserId(userId: string | null) {
 
 // Function to get the current user ID
 function getCurrentUserId(): string {
+  console.log('🔍 getCurrentUserId called, currentUserId:', currentUserId);
   if (!currentUserId) {
+    console.error('❌ No currentUserId available');
     throw new Error('User not authenticated - please log in');
   }
+  console.log('✅ Returning currentUserId:', currentUserId);
   return currentUserId;
 }
 
