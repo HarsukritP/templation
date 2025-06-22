@@ -99,12 +99,15 @@ export default function TemplatesPage() {
     try {
       setIsCreating(true)
       
-      // Use the MCP template converter API directly
+      // Use the MCP template converter API with proper authentication
+      // For testing, use the known API key for the test user
+      const testApiKey = 'tk_dev_6UwH7j3DYDmbvxFSx2ZAvXT-Z74AV2U53UyIhIsf_pM'
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://templation-api.up.railway.app'}/api/template/convert`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': 'auth0|test-user-123', // Use the same test user ID as in api.ts
+          'Authorization': `Bearer ${testApiKey}`,
         },
         body: JSON.stringify({
           repo_url: repoUrl,
@@ -377,17 +380,17 @@ export default function TemplatesPage() {
                   {filteredTemplates.map((template) => (
                     <Card key={template.id} className="group hover:shadow-lg transition-shadow">
                       <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="flex items-center space-x-2">
-                              <Github className="h-5 w-5" />
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="flex items-center gap-2">
+                              <Github className="h-5 w-5 shrink-0" />
                               <span className="truncate">{template.name}</span>
                             </CardTitle>
                             <CardDescription className="truncate">
                               From {template.source_repo_name}
                             </CardDescription>
                           </div>
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => handleToggleFavorite(template.id)}
                               className={`p-1 rounded hover:bg-muted ${
@@ -491,8 +494,8 @@ export default function TemplatesPage() {
                   {repositories.map((repo) => (
                     <Card key={repo.id}>
                       <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Github className="h-5 w-5" />
+                        <CardTitle className="flex items-center gap-2">
+                          <Github className="h-5 w-5 shrink-0" />
                           <span className="truncate">{repo.repo_name}</span>
                         </CardTitle>
                         <CardDescription>

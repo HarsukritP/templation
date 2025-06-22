@@ -340,8 +340,8 @@ Please provide specific guidance on how to adapt this template while maintaining
                 <Github className="h-5 w-5 shrink-0" />
                 <h1 className="text-2xl sm:text-3xl font-bold break-words">{template.name}</h1>
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                From <span className="font-medium break-all">{template.source_repo_name}</span>
+              <p className="text-muted-foreground text-sm leading-relaxed break-words">
+                From <span className="font-medium break-words">{template.source_repo_name}</span>
               </p>
             </div>
           </motion.div>
@@ -431,7 +431,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                             {step.command && (
                               <div className="bg-muted rounded-md p-3">
                                 <div className="flex items-start justify-between gap-3">
-                                  <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-all">
+                                  <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-words">
                                     <code>{step.command}</code>
                                   </pre>
                                   <Button
@@ -522,7 +522,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                     {template.setup_commands.map((command, index) => (
                       <div key={index} className="bg-muted rounded-md p-3">
                         <div className="flex items-start justify-between gap-3">
-                          <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-all">
+                          <pre className="font-mono text-sm overflow-x-auto flex-1 whitespace-pre-wrap break-words">
                             <code>{command}</code>
                           </pre>
                           <Button
@@ -558,7 +558,7 @@ Please provide specific guidance on how to adapt this template while maintaining
                       {template.files_to_modify.map((file, index) => (
                         <li key={index} className="flex items-center gap-3 text-sm">
                           <div className="w-2 h-2 bg-primary rounded-full shrink-0" />
-                          <code className="bg-muted px-2 py-1 rounded text-xs break-all">
+                          <code className="bg-muted px-2 py-1 rounded text-xs break-words max-w-full inline-block">
                             {file}
                           </code>
                         </li>
