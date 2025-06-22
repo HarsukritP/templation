@@ -46,6 +46,36 @@ All notable changes to the Templation MCP Server will be documented in this file
 - Auth0 + API key authentication
 - Integration with Templation backend
 
+## [2.1.3] - 2025-06-22
+
+### 🚀 Major Backend Improvements
+- **ADDED: Redis caching system** - Repository searches now cached for lightning-fast retrieval
+- **ADDED: `get_recent_repositories` function** - View previously searched repositories from cache
+- **FIXED: User authentication system** - Resolved security issue where all users shared templates
+- **FIXED: Template ownership** - Templates now properly associated with correct users
+- **FIXED: HTTPS enforcement** - Resolved mixed content errors blocking API calls
+- **IMPROVED: Database persistence** - All repository searches now saved to database
+- **IMPROVED: API endpoint reliability** - Fixed trailing slash issues causing empty responses
+
+### 🔧 Security & Performance
+- **CRITICAL SECURITY FIX**: Eliminated shared user sessions - each user now has isolated data
+- **PERFORMANCE**: Repository search results cached with Redis (10min TTL)
+- **PERFORMANCE**: Template search results cached (3min TTL)
+- **RELIABILITY**: Smart caching with graceful fallback when Redis unavailable
+
+### 📚 Documentation Updates
+- **IMPROVED: Setup instructions** - Clearer 5-step MCP setup process in docs
+- **ADDED: Visual setup guide** - Step-by-step numbered instructions with emphasis on API key copying
+- **IMPROVED: Configuration examples** - Separate examples for Cursor and Claude Desktop
+- **ENHANCED: User guidance** - Better error messages and troubleshooting tips
+
+## [2.1.2] - 2025-06-22
+
+### 🔧 Template System Fixes
+- **FIXED: Template retrieval** - Resolved authentication issues with template details
+- **FIXED: API endpoint paths** - Corrected trailing slash issues
+- **IMPROVED: Error handling** - Better debugging and user feedback
+
 ## [2.1.1] - 2025-06-22
 
 ### 🔧 Critical Bug Fixes
