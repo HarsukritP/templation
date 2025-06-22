@@ -33,7 +33,6 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
         source_repo_url=template_data.source_repo_url,
         source_repo_name=repo_name,
         template_data=template_data.template_data or {},
-        screenshot_url=template_data.screenshot_url,
         tags=template_data.tech_stack or [],  # Store tech_stack in tags for now
     )
     
@@ -50,7 +49,6 @@ async def create_template(template_data: TemplateCreate, user_id: str, db: Async
         description=db_template.description,
         source_repo_url=db_template.source_repo_url,
         template_data=db_template.template_data,
-        screenshot_url=db_template.screenshot_url,
         tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
         created_at=db_template.created_at,
         last_used=db_template.last_used
@@ -74,7 +72,6 @@ async def get_template(template_id: str, db: AsyncSession) -> Optional[TemplateS
             description=db_template.description,
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
-            screenshot_url=db_template.screenshot_url,
             tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
             created_at=db_template.created_at,
             last_used=db_template.last_used
@@ -104,7 +101,6 @@ async def get_user_templates(user_id: str, db: AsyncSession, limit: Optional[int
                 description=db_template.description,
                 source_repo_url=db_template.source_repo_url,
                 template_data=db_template.template_data,
-                screenshot_url=db_template.screenshot_url,
                 tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
                 created_at=db_template.created_at,
                 last_used=db_template.last_used
@@ -155,7 +151,6 @@ async def update_template(template_id: str, update_data: TemplateUpdate, db: Asy
             description=db_template.description,
             source_repo_url=db_template.source_repo_url,
             template_data=db_template.template_data,
-            screenshot_url=db_template.screenshot_url,
             tech_stack=db_template.tags or [],  # Get tech_stack from tags for now
             created_at=db_template.created_at,
             last_used=db_template.last_used

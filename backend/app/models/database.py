@@ -41,8 +41,8 @@ class Template(Base):
     template_data = Column(JSON, nullable=False)  # Generated template structure
     analysis_results = Column(JSON, nullable=True)  # AI analysis results
     tags = Column(JSON, nullable=True)  # ["nextjs", "typescript", "tailwind"]
-    tech_stack = Column(JSON, nullable=True)  # Alternative name for tags
-    screenshot_url = Column(String, nullable=True)  # Template screenshot
+    # tech_stack = Column(JSON, nullable=True)  # Alternative name for tags - COLUMN DOESN'T EXIST
+    # screenshot_url = Column(String, nullable=True)  # Template screenshot - COLUMN DOESN'T EXIST
     
     # Status and usage
     is_favorite = Column(Boolean, default=False)

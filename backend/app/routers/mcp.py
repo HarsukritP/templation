@@ -120,7 +120,7 @@ async def search_templates_mcp(
                 "source_repo_name": extract_repo_name_from_url(template.source_repo_url),
                 "tech_stack": template.tech_stack or [],
                 "tags": template.tech_stack or [],  # For backward compatibility
-                "screenshot_url": template.screenshot_url,
+                "screenshot_url": None,  # Column doesn't exist yet
                 "is_favorite": template.is_favorite,
                 "usage_count": getattr(template, 'usage_count', 0),
                 "last_used": template.last_used.isoformat() if getattr(template, 'last_used', None) else None,
@@ -280,7 +280,7 @@ async def get_template_details_mcp(
             "source_repo_url": template.source_repo_url,
             "source_repo_name": extract_repo_name_from_url(template.source_repo_url),
             "tech_stack": template.tech_stack or [],
-            "screenshot_url": template.screenshot_url,
+            "screenshot_url": None,  # Column doesn't exist yet
             "is_favorite": template.is_favorite,
             "usage_count": getattr(template, 'usage_count', 0),
             "last_used": template.last_used.isoformat() if getattr(template, 'last_used', None) else None,
