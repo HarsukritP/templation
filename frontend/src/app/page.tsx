@@ -215,7 +215,7 @@ export default function HomePage() {
         >
           <div className="space-y-4">
             <h2 className="text-3xl font-bold">Ready to accelerate your development?</h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-muted-foreground py-10">
               Join developers who are already using AI to build faster and smarter.
             </p>
           </div>
