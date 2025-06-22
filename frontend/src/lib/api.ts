@@ -1,19 +1,24 @@
-// Railway-specific fix: Use production URL when in production and env var is missing
-// Cache bust: 2025-01-22 - Force HTTPS in production
+// ABSOLUTE BULLETPROOF FIX: Completely ignore environment variables in production
+// This ensures we NEVER use HTTP URLs in production, regardless of what Railway sets
 const getApiBaseUrl = () => {
-  // BULLETPROOF: Always use HTTPS in production
+  // PRODUCTION: Always use HTTPS, no exceptions, no environment variable overrides
   if (process.env.NODE_ENV === 'production') {
-    console.log('🔒 PRODUCTION MODE: Forcing HTTPS API URL');
-    return 'https://templation-api.up.railway.app';
+    const httpsUrl = 'https://templation-api.up.railway.app';
+    console.log('🔒 PRODUCTION MODE: Using hardcoded HTTPS URL:', httpsUrl);
+    console.log('🚫 Ignoring any NEXT_PUBLIC_API_URL environment variable');
+    return httpsUrl;
   }
   
-  // Development fallback
-  console.log('Using development URL: http://localhost:8000');
-  return 'http://localhost:8000';
+  // DEVELOPMENT: Use localhost
+  const devUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  console.log('🛠️ DEVELOPMENT MODE: Using URL:', devUrl);
+  return devUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
-console.log('Final API_BASE_URL:', API_BASE_URL);
+console.log('🎯 FINAL API_BASE_URL:', API_BASE_URL);
+console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
+console.log('📝 NEXT_PUBLIC_API_URL (ignored in prod):', process.env.NEXT_PUBLIC_API_URL);
 
 // Type definitions for API responses
 interface ApiResponse<T = unknown> {
