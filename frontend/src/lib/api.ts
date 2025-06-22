@@ -1,4 +1,5 @@
 // Railway-specific fix: Use production URL when in production and env var is missing
+// Cache bust: 2025-01-22 - Force HTTPS in production
 const getApiBaseUrl = () => {
   // If explicitly set, use it but ensure HTTPS in production
   if (process.env.NEXT_PUBLIC_API_URL) {
