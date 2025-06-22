@@ -1,6 +1,12 @@
-# Templation MCP Server v2.0.0
+# Templation MCP Server v2.1.0
 
 > 🚀 **Enhanced MCP server for advanced GitHub repository search, AI-powered template conversion, and comprehensive template management directly in Cursor**
+
+## ⚡ v2.1.0 Critical Fixes
+- **🔧 Fixed**: `search_exemplar` endpoint authentication and path issues
+- **⚡ Performance**: 15x faster error handling (3s → 200ms for auth failures)
+- **🎯 UX**: Command-line API key argument instead of environment variables
+- **🛡️ Reliability**: Comprehensive error recovery and fast failure modes
 
 Transform any GitHub repository into a personalized, step-by-step template with AI-powered analysis and detailed customization guidance.
 
