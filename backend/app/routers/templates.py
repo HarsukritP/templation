@@ -42,9 +42,12 @@ async def get_templates(
 ):
     """Get all templates for current user"""
     try:
+        print(f"🔍 DEBUG: Getting templates for user {current_user.id} (auth0_id: {current_user.auth0_id})")
         templates = await get_user_templates(current_user.id, db)
+        print(f"✅ DEBUG: Found {len(templates)} templates for user {current_user.id}")
         return templates
     except Exception as e:
+        print(f"❌ DEBUG: Error getting templates for user {current_user.id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve templates: {str(e)}"
