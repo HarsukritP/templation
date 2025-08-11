@@ -181,11 +181,11 @@ export default function TemplatesPage() {
   const handleShareToMarketplace = async (templateId: string) => {
     try {
       const { api } = await import('../../lib/api')
-      const result = await api.toggleTemplatePublic(templateId) as { is_public: boolean }
+      const { is_public } = await api.toggleTemplatePublic(templateId) as { is_public: boolean }
       
       setNotification({
         type: 'success',
-        message: result.is_public ? 'Template shared to marketplace!' : 'Template made private'
+        message: is_public ? 'Template shared to marketplace!' : 'Template made private'
       })
       
       await fetchData()
